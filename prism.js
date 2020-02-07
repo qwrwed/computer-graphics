@@ -51,6 +51,12 @@ var g_yAngle = 0.0;    // The rotation y angle (degrees)
 function main() {
   // Retrieve <canvas> element
   var canvas = document.getElementById('webgl');
+  canvas.width = document.body.clientWidth;
+  canvas.height = document.body.clientHeight;
+  //canvas.width = window.innerWidth;
+  //canvas.height = window.innerHeight;
+  //canvasW = canvas.width;
+  //canvasH = canvas.height;
 
   // Get the rendering context for WebGL
   var gl = getWebGLContext(canvas);
@@ -58,6 +64,8 @@ function main() {
     console.log('Failed to get the rendering context for WebGL');
     return;
   }
+  //gl.canvas.width = window.innerWidth
+  //gl.canvas.height = window.innerHeight
 
   // Initialize shaders
   if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
@@ -67,7 +75,7 @@ function main() {
 
   // Set clear color and enable hidden surface removal
   //gl.clearColor(0.0, 0.0, 0.0, 1.0);
-  gl.clearColor(1.0, 1.0, 1.0, 1.0);
+  gl.clearColor(0.9, 0.9, 0.9, 1.0);
   gl.enable(gl.DEPTH_TEST);
 
   // Clear color and depth buffer
@@ -160,14 +168,19 @@ function addVector3(a, b, c) {
   return c.map((e, i) => e + a[i] + b[i]);
 }
 
-function initPrismVertexBuffers(gl, sides=4, color=[1,0,0]) {
+function initPrismVertexBuffers(gl, sides = 4, color = [1, 0, 0], offset = false, fitInCircle=false) {
 
+  //sides = 4
 
   const csIndices = [...Array(sides).keys()] // array of top vertex indices
-  const radius = Math.sqrt(2) / 2 // xz-distance magnitude from origin to vertex
-  //const radius = 0.5
+  const radius = !fitInCircle?
+    //at least a metre(by default) in diameter
+    Math.sqrt(2) / 2: // xz-distance magnitude from origin to vertex
+    //at most a metre (by default) in diameter to fit in a 1-diameter circle
+    0.5
 
-  const radAngles = csIndices.map(i => (i * (2 * Math.PI) / sides + Math.PI/sides)); // array of angles between current vertex/origin and first vertex/origin (radians)
+
+  const radAngles = csIndices.map(i => (i * (2 * Math.PI) / sides + !offset * Math.PI / sides)); // array of angles between current vertex/origin and first vertex/origin (radians)
   const dispX = radAngles.map(t => +Math.sin(t).toFixed(10)); // x displacement of each vertex calculated by angle
   const dispZ = radAngles.map(t => +Math.cos(t).toFixed(10)); // z displacement of each vertex calculated by angle
   const dispYAbs = 0.5 // y-distance magnitude from origin to top and bottom vertices/faces
@@ -178,20 +191,20 @@ function initPrismVertexBuffers(gl, sides=4, color=[1,0,0]) {
   const vBottom = csIndices.map(i => [radius * dispX[i % sides], -dispYAbs, radius * dispZ[i % sides]]); // array of vertex coordinates (2D: [[x,y,z], [x,y,z], ...])
   const nBottom = vBottom.map((e, i) => [0, -1, 0]);
 
-  
+
   eTop = csIndices.map(i => [i, mod(i + 1, sides)]) // top edges
   eBottom = csIndices.map(i => [i + sides, mod(i + 1, sides) + sides]) // bottom edges
   eSides = eTop.map((e, i) => [...eTop[i], ...eBottom[i]]) // side edges
 
   const vTopBottom = [...vTop, ...vBottom]
   vSides = eSides.flat().map((e, i) => vTopBottom[e])
-  nSides = csIndices.map((e, i) => Array(4).fill(addVector3([dispX[i], 0, dispZ[i]], [0, 0, 0], [dispX[mod(i + 1, sides)], 0,  dispZ[mod(i + 1, sides)]])))
-  
+  nSides = csIndices.map((e, i) => Array(4).fill(addVector3([dispX[i], 0, dispZ[i]], [0, 0, 0], [dispX[mod(i + 1, sides)], 0, dispZ[mod(i + 1, sides)]])))
+
   v = [vTop, vBottom, vSides]
   n = [nTop, nBottom, nSides]
 
   var vertices = new Float32Array(v.flat(Infinity)); // vertex coordinates in WebGL-compatible format
-  var normals  = new Float32Array(n.flat(Infinity))
+  var normals = new Float32Array(n.flat(Infinity))
 
   colorsJS = new Array();
   colorsJS.push(v.flat().map(i => color))
@@ -209,10 +222,10 @@ function initPrismVertexBuffers(gl, sides=4, color=[1,0,0]) {
   topTriVertIndices = topTriIndices.map(i => topVertTriangulationOrder.slice(i + 3 - 3, i + 3)) // indices of individual vertices of the top triangles
   topTriVertPositions = topTriVertIndices.flat().map(i => sides * 0 + mod(i, sides)) // indices of top face made positive
   bottomTriVertPositions = topTriVertIndices.flat().map(i => sides * 1 + mod(i, sides)) //indices of bottom face made positive
-  
+
   sideTriVertIndices = csIndices.map(i => [mod(i, sides), mod(i + 1, sides), mod(i, sides) + sides, mod(i + 1, sides), mod(i, sides) + sides, mod(i + 1, sides) + sides])
-  sideTriVertPositions = csIndices.map(i=>[i*4+0, i*4+1, i*4+2, i*4+1, i*4+2, i*4+3])
-  sideTriVertPositions = sideTriVertPositions.flat().map((e, i)=>e+2*sides)
+  sideTriVertPositions = csIndices.map(i => [i * 4 + 0, i * 4 + 1, i * 4 + 2, i * 4 + 1, i * 4 + 2, i * 4 + 3])
+  sideTriVertPositions = sideTriVertPositions.flat().map((e, i) => e + 2 * sides)
 
   var indicesJS = [topTriVertPositions, bottomTriVertPositions, sideTriVertPositions]
 
@@ -336,11 +349,72 @@ function popMatrix() { // Retrieve the matrix from the array
   return g_matrixStack.pop();
 }
 
+function repeatRadial(args, fn) {
+  var { r = 0.5, n = 4, offset = false } = args
+  const angle = 360 / n;
+  modelMatrix.rotate(!offset * angle / 2, 0, 1, 0)
+  modelMatrix.translate(0, 0, r)
+  for (var i = 0; i < n; i++) {
+    modelMatrix.translate(0, 0, -r)
+    modelMatrix.rotate(angle, 0, 1, 0)
+    modelMatrix.translate(0, 0, r)
+    fn(modelMatrix)
+  }
+}
 
 
 
 
 
+function drawChair(data, args) {
+  var { gl, u_ModelMatrix, u_NormalMatrix } = data;
+  const {chairLegColor = [0.5, 0.5, 0.5], chairSeatColor = [0.9, 0.9, 0.9]} = args
+
+  let sides = 32
+
+
+  pushMatrix(modelMatrix);
+  modelMatrix.rotate(180, 0, 1, 0)
+  //draw 4 chair legs
+  modelMatrix.translate(0,0.25,0)
+  //modelMatrix.scale(...[1.5,1.5,1.5])
+  
+  const squareRadius = 2**-0.5 // distance from centre to corner of 1x1 square
+  pushMatrix(modelMatrix);
+  repeatRadial({ r: squareRadius*0.5 - Math.sqrt(2*0.025**2), n: 4, offset: false }, () => {
+    drawPrism(data, {
+      sides: sides,
+      color: chairLegColor,
+      scale: [0.05, 0.5, 0.05],
+      offset: true,
+      fitInCircle: true
+    })
+  })
+
+  modelMatrix = popMatrix();
+
+  pushMatrix(modelMatrix);
+    modelMatrix.translate(0, 0.275, 0)
+    drawPrism3QuarterCube(data, {
+      scale: [0.5, 0.05, 0.5],
+      offset:true,
+      sides: sides,
+      color: chairSeatColor
+    })
+  modelMatrix = popMatrix();
+  
+  pushMatrix(modelMatrix);
+    modelMatrix.translate(0, 0.6, -0.2)
+    drawPrismHalfCube(data, {
+      sides: sides,
+      color: chairSeatColor,
+      scale: [0.5,0.6,0.1],
+      fitInCircle: true,
+      offset:true,
+    })
+  modelMatrix = popMatrix();
+  modelMatrix = popMatrix();
+}
 
 
 
@@ -374,126 +448,75 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
   */
   gl.uniform1i(u_isLighting, true); // Will apply lighting
 
-  
+
 
   // Rotate, and then translate
   modelMatrix.setTranslate(0, 0, 0);  // Translation (No translation is supported here)
   modelMatrix.rotate(g_yAngle, 0, 1, 0); // Rotate along y axis
   modelMatrix.rotate(g_xAngle, 1, 0, 0); // Rotate along x axis
 
-  const chairLegArgs = {
-    sides : 10,
-    color: [0.4, 0.25, 0.125].map(e=>e*5),
-    scale: [0.05,0.5,0.05]
-  }
+  //const chairLegColor = [0.4, 0.25, 0.125].map(e => e * 2)
+  const chairLegColor = [0.8, 0.65, 0.45].map(e => e * 1.5)
+  //const chairSeatColor = [1,1,0.5]
+  const chairSeatColor = [0.8,0.8,0.8]
 
-  const r = 0.25
-  const h = 0.25
-  pushMatrix(modelMatrix);
-    modelMatrix.translate(r, h, r)
-    drawPrism(data, chairLegArgs)
-  modelMatrix = popMatrix();
-
-  pushMatrix(modelMatrix);
-    modelMatrix.translate(-r, h, r)
-    drawPrism(data, chairLegArgs)
-  modelMatrix = popMatrix();
-
-  pushMatrix(modelMatrix);
-    modelMatrix.translate(-r, h, -r)
-    drawPrism(data, chairLegArgs)
-  modelMatrix = popMatrix();
-
-  pushMatrix(modelMatrix);
-    modelMatrix.translate(r, h, -r)
-    drawPrism(data, chairLegArgs)
-  modelMatrix = popMatrix();
-
-  pushMatrix(modelMatrix);
-    modelMatrix.translate(0, 0.5, 0)
-    drawPrism(data, {
-      color: chairLegArgs.color,
-      scale: [0.6,0.05,0.6]
-    })
-  modelMatrix = popMatrix();
-
-  pushMatrix(modelMatrix);
-    //modelMatrix.translate(0, 0.825, -0.275)
-    modelMatrix.rotate(90, 1, 0, 0)
-    modelMatrix.translate(0, 0.275, -0.9)
-    drawPrism(data, {
-      sides:8,
-      color: chairLegArgs.color,
-      scale: [0.45,0.03,0.6]
-    })
-  modelMatrix = popMatrix();
 
   
-  pushMatrix(modelMatrix);
-    //modelMatrix.translate(0, 0.825, -0.275)
-    modelMatrix.rotate(90, 0, 0, 1)
-    modelMatrix.translate(0.75, 0, 0.275)
-    //modelMatrix.translate(0, 0.275, -0.9)
-    drawPrism(data, {
-      sides:8,
-      color: chairLegArgs.color,
-      scale: [0.4,0.59,0.05]
-    })
-  modelMatrix = popMatrix();
 
   pushMatrix(modelMatrix);
-    //modelMatrix.translate(0, 0.825, -0.275)
-    modelMatrix.translate(0, 0.6, 0.267)
-    drawPrism(data, {
-      sides:4,
-      color: chairLegArgs.color,
-      scale: [0.59,0.2,0.05]
-    })
-  modelMatrix = popMatrix();
-
-  /*
-  pushMatrix(modelMatrix);
-    modelMatrix.translate(0, 1, -0.275)
-    drawPrism(data, {
-      sides: 8,
-      color: chairLegArgs.color,
-      scale: [0.6,0.6,0.05]
-    })
-  modelMatrix = popMatrix();
-*/
-  /*
-  // Model the chair back
-  pushMatrix(modelMatrix);
-    modelMatrix.translate(0, 1.25, -0.75);  // Translation
-    modelMatrix.scale(2.0, 2.0, 0.5); // Scale
-    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n);
+  repeatRadial({n:4, r:1}, () => {
+    //drawChair(data, {})
+  })
   modelMatrix = popMatrix();
   
-  var n = initPrismVertexBuffers(gl, 4, [1, 1, 0.5])//, sides, color);
-  if (n < 0) {
-    console.log('Failed to set the vertex information');
-    return;
-  }
-  // model the prism
-  drawbox(gl, u_ModelMatrix, u_NormalMatrix, n)
-  */
 }
 
 
+function drawPrismHalfCube(data, args) {
+  var { gl, u_ModelMatrix, u_NormalMatrix } = data;
+  const { sides = 4, color = [0, 1, 0], scale = [1, 1, 1], offset = false, fitInCircle = false } = args;
+  args = {sides, color, scale, offset, fitInCircle}
+  args.fitInCircle = true
+  pushMatrix(modelMatrix);
+    drawPrism(data, args)
+    modelMatrix.scale(...args.scale)
+    modelMatrix.translate(0,0,-0.25)
+    drawPrism(data, {color: args.color, scale: [1,1,0.5]})
+  modelMatrix = popMatrix();
+}
+
+function drawPrism3QuarterCube(data, args) {
+  var { gl, u_ModelMatrix, u_NormalMatrix } = data;
+  var { sides = 4, color = [0, 1, 0], scale = [1, 1, 1], offset = false, fitInCircle = false } = args;
+  args = {sides, color, scale, offset, fitInCircle}
+  args.fitInCircle = true
+  
+  args.scale = [args.scale[1], args.scale[0], args.scale[2]]
+  pushMatrix(modelMatrix);
+    modelMatrix.rotate(-90, 0, 0, 1)
+    drawPrism(data, args)  
+    modelMatrix.scale(...args.scale)
+    modelMatrix.translate(0,0,-0.25)
+    drawPrism(data, {color: args.color, scale: [1,1,0.5]})
+    modelMatrix.translate(0.25,0,0.5)
+    drawPrism(data, {color: args.color, scale: [0.5,1,0.5]})
+  modelMatrix = popMatrix();
+
+}
 
 function drawPrism(data, args) {
-  var {gl, u_ModelMatrix, u_NormalMatrix} = data;
-  const {sides = 4, color = [0,1,0], scale = [1,1,1]} = args;
-  var n = initPrismVertexBuffers(gl, sides, color)//, sides, color);
+  var { gl, u_ModelMatrix, u_NormalMatrix } = data;
+  const { sides = 4, color = [0, 1, 0], scale = [1, 1, 1], offset = false, fitInCircle = false } = args;
+  var n = initPrismVertexBuffers(gl, sides, color, offset, fitInCircle);
   if (n < 0) {
     console.log('Failed to set the vertex information');
     return;
   }
-  
-  // Model the chair seat
+
+  // Model the prism
   pushMatrix(modelMatrix);
-    modelMatrix.scale(...scale); // Scale
-    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n);
+  modelMatrix.scale(...scale); // Scale
+  drawbox(gl, u_ModelMatrix, u_NormalMatrix, n);
   modelMatrix = popMatrix();
 }
 
