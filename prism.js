@@ -66,7 +66,8 @@ function main() {
   }
 
   // Set clear color and enable hidden surface removal
-  gl.clearColor(0.0, 0.0, 0.0, 1.0);
+  //gl.clearColor(0.0, 0.0, 0.0, 1.0);
+  gl.clearColor(1.0, 1.0, 1.0, 1.0);
   gl.enable(gl.DEPTH_TEST);
 
   // Clear color and depth buffer
@@ -159,91 +160,43 @@ function addVector3(a, b, c) {
   return c.map((e, i) => e + a[i] + b[i]);
 }
 
-function initVertexBuffers(gl) {
-  // Original: Create a cube
-  //    v6----- v5
-  //   /|      /|
-  //  v1------v0|
-  //  | |     | |
-  //  | |v7---|-|v4
-  //  |/      |/
-  //  v2------v3
-
-  // Adaptation: Create a prism
-  //    v2----- v1
-  //   /|      /|
-  //  v3------v0|
-  //  | |     | |
-  //  | |v6---|-|v5
-  //  |/      |/
-  //  v7------v4
+function initPrismVertexBuffers(gl, sides=4, color=[1,0,0]) {
 
 
-  //const csSides = 40 // number of top (or bottom) vertices on prism
-  const csSides = 40 // number of top (or bottom) vertices on prism
-  const csIndices = [...Array(csSides).keys()] // array of top vertex indices
-  //const vIndices = [...Array(csSides * 2).keys()] // array of top and bottom vertex indices
+  const csIndices = [...Array(sides).keys()] // array of top vertex indices
   const radius = Math.sqrt(2) / 2 // xz-distance magnitude from origin to vertex
-  //const radius = 1
+  //const radius = 0.5
 
-  const radAngles = csIndices.map(i => (i * (2 * Math.PI) / csSides)); // array of angles between current vertex/origin and first vertex/origin (radians)
+  const radAngles = csIndices.map(i => (i * (2 * Math.PI) / sides + Math.PI/sides)); // array of angles between current vertex/origin and first vertex/origin (radians)
   const dispX = radAngles.map(t => +Math.sin(t).toFixed(10)); // x displacement of each vertex calculated by angle
   const dispZ = radAngles.map(t => +Math.cos(t).toFixed(10)); // z displacement of each vertex calculated by angle
   const dispYAbs = 0.5 // y-distance magnitude from origin to top and bottom vertices/faces
-  //const dispYAbs = 1
-  //const v = vIndices.map(i => [radius * dispX[i % csSides], dispYAbs * ((-1) ** (i >= csSides)), radius * dispZ[i % csSides]]); // array of vertex coordinates (2D: [[x,y,z], [x,y,z], ...])
 
-  const vTop = csIndices.map(i => [radius * dispX[i % csSides], dispYAbs, radius * dispZ[i % csSides]]); // array of vertex coordinates (2D: [[x,y,z], [x,y,z], ...])
+  const vTop = csIndices.map(i => [radius * dispX[i % sides], dispYAbs, radius * dispZ[i % sides]]); // array of vertex coordinates (2D: [[x,y,z], [x,y,z], ...])
   const nTop = vTop.map((e, i) => [0, 1, 0]);
 
-  const vBottom = csIndices.map(i => [radius * dispX[i % csSides], -dispYAbs, radius * dispZ[i % csSides]]); // array of vertex coordinates (2D: [[x,y,z], [x,y,z], ...])
+  const vBottom = csIndices.map(i => [radius * dispX[i % sides], -dispYAbs, radius * dispZ[i % sides]]); // array of vertex coordinates (2D: [[x,y,z], [x,y,z], ...])
   const nBottom = vBottom.map((e, i) => [0, -1, 0]);
 
+  
+  eTop = csIndices.map(i => [i, mod(i + 1, sides)]) // top edges
+  eBottom = csIndices.map(i => [i + sides, mod(i + 1, sides) + sides]) // bottom edges
+  eSides = eTop.map((e, i) => [...eTop[i], ...eBottom[i]]) // side edges
+
   const vTopBottom = [...vTop, ...vBottom]
-
-  const COLOR = [1,1,1]
-  //v = [vTop]
-  //console.log(vTop)
-  //console.log(nTop)
-
-  //console.log(vBottom)
-  //console.log(nBottom)
-
-  //const vSide = 0, 1, 3, 4,    1, 2, 5, 6,    2, 3, 6, 7,    3, 4, 7, 8
-
-  //console.log(mod(7+1, 2*csSides))
-  eTop = csIndices.map(i => [i, mod(i + 1, csSides)]) // top edges
-  eBottom = csIndices.map(i => [i + csSides, mod(i + 1, csSides) + csSides]) // bottomedges
-
-  eSides = eTop.map((e, i) => [...eTop[i], ...eBottom[i]])
-
-  //console.log(eSides)
-  //console.log(vTopBottom)
-
   vSides = eSides.flat().map((e, i) => vTopBottom[e])
-  //nSides = csIndices.map((e, i) => Array(4).fill([dispX[i], 0, dispZ[i]])).flat()
-  //nSides = csIndices.map((e, i) => [dispX[i], 0, dispZ[i]])
-  nSides = csIndices.map((e, i) => [dispX[i], 0, dispZ[i]])
+  nSides = csIndices.map((e, i) => Array(4).fill(addVector3([dispX[i], 0, dispZ[i]], [0, 0, 0], [dispX[mod(i + 1, sides)], 0,  dispZ[mod(i + 1, sides)]])))
+  
+  v = [vTop, vBottom, vSides]
+  n = [nTop, nBottom, nSides]
 
-  //console.log(vSides)
+  var vertices = new Float32Array(v.flat(Infinity)); // vertex coordinates in WebGL-compatible format
+  var normals  = new Float32Array(n.flat(Infinity))
 
-  //console.log(dispX)
-  //console.log(dispZ)
-  //console.log(nSides)
+  colorsJS = new Array();
+  colorsJS.push(v.flat().map(i => color))
+  colors = new Float32Array(colorsJS.flat(Infinity))
 
-  for (j=0;j<csSides;j++){
-    //console.log([dispX[j], 0, dispZ[j]])  
-    //console.log()
-  }
-  nSides = csIndices.map((e, i) => Array(4).fill(addVector3([dispX[i], 0, dispZ[i]], [0, 0, 0], [dispX[mod(i + 1, csSides)], 0,  dispZ[mod(i + 1, csSides)]])))
-  //console.log(nSides)
-  //console.log(nSides.flat())
-
-  //console.log(eSides.map((e, i)=> vTopBottom[e]))
-
-  //console.log(vSides)
-
-  //v = [vSides.slice(0,3+1)]
   topVertTriangulationOrder = csIndices.map(i => {
     if ((i % 2) === 0) {
       return -(i / 2)
@@ -252,146 +205,20 @@ function initVertexBuffers(gl) {
     }
   }); // order in which to draw the vertices such that the top/bottom faces will be triangulated; ccw +ve, cw -ve
 
-  topTriIndices = [...Array(csSides - 2).keys()] // array with one index per cross-section triangle (e.g. square => [0,1])
+  topTriIndices = [...Array(sides - 2).keys()] // array with one index per cross-section triangle (e.g. square => [0,1])
   topTriVertIndices = topTriIndices.map(i => topVertTriangulationOrder.slice(i + 3 - 3, i + 3)) // indices of individual vertices of the top triangles
-  topTriVertPositions = topTriVertIndices.flat().map(i => csSides * 0 + mod(i, csSides)) // indices of top face made positive
-  bottomTriVertPositions = topTriVertIndices.flat().map(i => csSides * 1 + mod(i, csSides)) //indices of bottom face made positive
-
-  sideTriVertIndices = csIndices.map(i => [mod(i, csSides), mod(i + 1, csSides), mod(i, csSides) + csSides, mod(i + 1, csSides), mod(i, csSides) + csSides, mod(i + 1, csSides) + csSides])
-  // indices of side faces (2D; one 6-element array per rectangular face)
-  //console.log(sideTriVertIndices)
-
-  // Indices of the vertices
-  /*
-  var indicesJS = [
-    topTriVertPositions,
-    bottomTriVertPositions,
-    sideTriVertIndices.flat()
-  ]*/
-
-  //v = [vTop, vBottom, vSides]
-  //v = [vTop]
-  //console.log(vSides)
-  //console.log(abcd)
-  //v = [vTop, vBottom, vSides]
-
-
-  v = [vTop, vBottom, vSides]
-  //n = [nTop]
-
-  //v = [vBottom]
-  //n = [nBottom]
-
-  //v = [vSides]
-  //n = [nSides]
-
-  //v = [vTop, vBottom, vSides]
-  //v = [vSides]
-  n = [nTop, nBottom, nSides]
-
-  //n = [nTop, nBottom, nSides.flat()]
-
-
+  topTriVertPositions = topTriVertIndices.flat().map(i => sides * 0 + mod(i, sides)) // indices of top face made positive
+  bottomTriVertPositions = topTriVertIndices.flat().map(i => sides * 1 + mod(i, sides)) //indices of bottom face made positive
   
-
-
-  //s1 = 1
-  //s2 = 4
-
-  //v = [vSides]//.slice(s1,s2)]//.slice(0, 7)]
-  //n = [nSides]
-  //console.log(v)
-  //n = vSides.map(()=>[1,1,1])
-  /*
-  n = [
-    1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 
-    1, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0, -1, 
-    -1, 0, 1, -1, 0, 1, -1, 0, 1, -1, 0, 1, 
-    -1, 0, -1, -1, 0, -1, -1, 0, -1, -1, 0, -1, 
-    
-  ]*/
-  //n = [nBottom]
-  
-  const verticesJS = v // vertex coordinates flattened to 1d
-  var vertices = new Float32Array(verticesJS.flat(Infinity)); // vertex coordinates in WebGL-compatible format
-
-  //const normalsJS = n // vertex coordinates flattened to 1d
-  //var normals = new Float32Array(normalsJS.flat(Infinity)); // vertex coordinates in WebGL-compatible format
-
-  //console.log(verticesJS)
-  //console.log(normalsJS)
-
-  //console.log(v)
-  //console.log(v.map((e, i) => [i, i+1, i+2]))
-  //console.log(v.length)
-  //var indicesJS = v.flat().map((e, i) => [mod(i+0, v.flat().length), mod(i+1, v.flat().length), mod(i+2, v.flat().length)])
-
-  //sideTriVertPositions = v.flat().map((e, i) => [mod(i + 0, v.flat().length), mod(i + 1, v.flat().length), mod(i + 2, v.flat().length)])
+  sideTriVertIndices = csIndices.map(i => [mod(i, sides), mod(i + 1, sides), mod(i, sides) + sides, mod(i + 1, sides), mod(i, sides) + sides, mod(i + 1, sides) + sides])
   sideTriVertPositions = csIndices.map(i=>[i*4+0, i*4+1, i*4+2, i*4+1, i*4+2, i*4+3])
-  //indicesJS = [...topTriVertPositions, ...bottomTriVertPositions, ...sideTriVertPositions]
-  //console.log(sideTriVertPositions)
-  //indicesJS = [...topTriVertPositions, ...bottomTriVertPositions]
-  indicesJS = []
-  //indicesJS = [topTriVertPositions, bottomTriVertPositions, ...sideTriVertPositions].flat(Infinity)
-  //indicesJS = [...sideTriVertPositions]
-  //console.log(v.map())
-
-  /*
-  var indicesJS = [
-    0, 1, 2, 1, 2, 3,
-  ]*/
-  //var indicesJS = topTriVertPositions
-  //var indicesJS = topTriVertPositions
-  //var indicesJS = [...topTriVertPositions, ...bottomTriVertPositions, ...sideTriVertPositions]
-  //var indicesJS = [...(sideTriVertPositions.slice(s1,s2))]
-  //console.log(n)
-
-  //console.log([...topTriVertPositions, ...bottomTriVertPositions])
-  sideTriVertPositions = sideTriVertPositions.flat().map((e, i)=>e+2*csSides)
-  //console.log(sideTriVertPositions)
+  sideTriVertPositions = sideTriVertPositions.flat().map((e, i)=>e+2*sides)
 
   var indicesJS = [topTriVertPositions, bottomTriVertPositions, sideTriVertPositions]
-  /*
-  var indicesJS = [
-     0,  1,  2,   1,  2,  3,
-     4,  5,  6,   5,  6,  7,
-     8,  9, 10,   9, 10, 11,
-    12, 13, 14,  13, 14, 15,
-    
-  ]*/
-  //console.log(indicesJS)
+
   var indices = new Uint8Array(
     indicesJS.flat(Infinity)
   );
-
-  //console.log(verticesJS)
-  //console.log(normalsJS)
-  //console.log(indicesJS)
-  colorsJS = new Array();
-  colorsJS.push(verticesJS.flat().map(i => COLOR))
-
-  //console.log(colorsJS)
-  /*
-  colorsJS = [
-    0,0,1, 0,0,1, 0,0,1, 0,0,1,
-    0,1,0, 0,1,0, 0,1,0, 0,1,0,
-    0,1,1, 0,1,1, 0,1,1, 0,1,1, 
-    1,0,0, 1,0,0, 1,0,0, 1,0,0, 
-  ]*/
-  colors = new Float32Array(colorsJS.flat(Infinity))
-/*
-  normalsJS = [
-     1, 0, 1,   1, 0, 1,   1, 0, 1,   1, 0, 1, //prism face 1
-     1, 0,-1,   1, 0,-1,   1, 0,-1,   1, 0,-1, //prism face 2
-    -1, 0,-1,  -1, 0,-1,  -1, 0,-1,  -1, 0,-1, //prism face 3
-    -1, 0, 1,  -1, 0, 1,  -1, 0, 1,  -1, 0, 1, //prism face 4
-                                               //...
-  ]*/
-
-  //normals = colors
-
-  //normalsJS = new Array();
-  normals = new Float32Array(n.flat(Infinity))
 
   // Write the vertex property to buffers (coordinates, colors and normals)
   if (!initArrayBuffer(gl, 'a_Position', vertices, 3, gl.FLOAT)) return -1;
@@ -418,7 +245,7 @@ function initArrayBuffer(gl, attribute, data, num, type) {
     console.log('Failed to create the buffer object');
     return false;
   }
-  // Write date into the buffer object
+  // Write data into the buffer object
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
   // Assign the buffer object to the attribute variable
@@ -435,6 +262,12 @@ function initArrayBuffer(gl, attribute, data, num, type) {
 
   return true;
 }
+
+
+
+
+
+
 
 function initAxesVertexBuffers(gl) {
 
@@ -487,6 +320,12 @@ function initAxesVertexBuffers(gl) {
   return n;
 }
 
+
+
+
+
+
+
 var g_matrixStack = []; // Array for storing a matrix
 function pushMatrix(m) { // Store the specified matrix to the array
   var m2 = new Matrix4(m);
@@ -497,10 +336,22 @@ function popMatrix() { // Retrieve the matrix from the array
   return g_matrixStack.pop();
 }
 
+
+
+
+
+
+
+
+
 function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
+  //draw everything
+  var data = { gl, u_ModelMatrix, u_NormalMatrix, u_isLighting };
 
   // Clear color and depth buffer
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  /*
 
   gl.uniform1i(u_isLighting, false); // Will not apply lighting
 
@@ -518,39 +369,132 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
   gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
 
   // Draw x and y axes
-  //gl.drawArrays(gl.LINES, 0, n);
-
+  gl.drawArrays(gl.LINES, 0, n);
+  draw
+  */
   gl.uniform1i(u_isLighting, true); // Will apply lighting
 
-  // Set the vertex coordinates and color (for the cube)
-  var n = initVertexBuffers(gl);
-  if (n < 0) {
-    console.log('Failed to set the vertex information');
-    return;
-  }
+  
 
   // Rotate, and then translate
   modelMatrix.setTranslate(0, 0, 0);  // Translation (No translation is supported here)
   modelMatrix.rotate(g_yAngle, 0, 1, 0); // Rotate along y axis
   modelMatrix.rotate(g_xAngle, 1, 0, 0); // Rotate along x axis
 
-  /*
-  // Model the chair seat
+  const chairLegArgs = {
+    sides : 10,
+    color: [0.4, 0.25, 0.125].map(e=>e*5),
+    scale: [0.05,0.5,0.05]
+  }
+
+  const r = 0.25
+  const h = 0.25
   pushMatrix(modelMatrix);
-    modelMatrix.scale(2.0, 0.5, 2.0); // Scale
-    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n);
+    modelMatrix.translate(r, h, r)
+    drawPrism(data, chairLegArgs)
   modelMatrix = popMatrix();
 
+  pushMatrix(modelMatrix);
+    modelMatrix.translate(-r, h, r)
+    drawPrism(data, chairLegArgs)
+  modelMatrix = popMatrix();
+
+  pushMatrix(modelMatrix);
+    modelMatrix.translate(-r, h, -r)
+    drawPrism(data, chairLegArgs)
+  modelMatrix = popMatrix();
+
+  pushMatrix(modelMatrix);
+    modelMatrix.translate(r, h, -r)
+    drawPrism(data, chairLegArgs)
+  modelMatrix = popMatrix();
+
+  pushMatrix(modelMatrix);
+    modelMatrix.translate(0, 0.5, 0)
+    drawPrism(data, {
+      color: chairLegArgs.color,
+      scale: [0.6,0.05,0.6]
+    })
+  modelMatrix = popMatrix();
+
+  pushMatrix(modelMatrix);
+    //modelMatrix.translate(0, 0.825, -0.275)
+    modelMatrix.rotate(90, 1, 0, 0)
+    modelMatrix.translate(0, 0.275, -0.9)
+    drawPrism(data, {
+      sides:8,
+      color: chairLegArgs.color,
+      scale: [0.45,0.03,0.6]
+    })
+  modelMatrix = popMatrix();
+
+  
+  pushMatrix(modelMatrix);
+    //modelMatrix.translate(0, 0.825, -0.275)
+    modelMatrix.rotate(90, 0, 0, 1)
+    modelMatrix.translate(0.75, 0, 0.275)
+    //modelMatrix.translate(0, 0.275, -0.9)
+    drawPrism(data, {
+      sides:8,
+      color: chairLegArgs.color,
+      scale: [0.4,0.59,0.05]
+    })
+  modelMatrix = popMatrix();
+
+  pushMatrix(modelMatrix);
+    //modelMatrix.translate(0, 0.825, -0.275)
+    modelMatrix.translate(0, 0.6, 0.267)
+    drawPrism(data, {
+      sides:4,
+      color: chairLegArgs.color,
+      scale: [0.59,0.2,0.05]
+    })
+  modelMatrix = popMatrix();
+
+  /*
+  pushMatrix(modelMatrix);
+    modelMatrix.translate(0, 1, -0.275)
+    drawPrism(data, {
+      sides: 8,
+      color: chairLegArgs.color,
+      scale: [0.6,0.6,0.05]
+    })
+  modelMatrix = popMatrix();
+*/
+  /*
   // Model the chair back
   pushMatrix(modelMatrix);
     modelMatrix.translate(0, 1.25, -0.75);  // Translation
     modelMatrix.scale(2.0, 2.0, 0.5); // Scale
     drawbox(gl, u_ModelMatrix, u_NormalMatrix, n);
   modelMatrix = popMatrix();
-  */
-
+  
+  var n = initPrismVertexBuffers(gl, 4, [1, 1, 0.5])//, sides, color);
+  if (n < 0) {
+    console.log('Failed to set the vertex information');
+    return;
+  }
   // model the prism
   drawbox(gl, u_ModelMatrix, u_NormalMatrix, n)
+  */
+}
+
+
+
+function drawPrism(data, args) {
+  var {gl, u_ModelMatrix, u_NormalMatrix} = data;
+  const {sides = 4, color = [0,1,0], scale = [1,1,1]} = args;
+  var n = initPrismVertexBuffers(gl, sides, color)//, sides, color);
+  if (n < 0) {
+    console.log('Failed to set the vertex information');
+    return;
+  }
+  
+  // Model the chair seat
+  pushMatrix(modelMatrix);
+    modelMatrix.scale(...scale); // Scale
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n);
+  modelMatrix = popMatrix();
 }
 
 function drawbox(gl, u_ModelMatrix, u_NormalMatrix, n) {
