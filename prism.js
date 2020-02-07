@@ -465,7 +465,7 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
 
   pushMatrix(modelMatrix);
   repeatRadial({n:4, r:1}, () => {
-    //drawChair(data, {})
+    drawChair(data, {})
   })
   modelMatrix = popMatrix();
   
