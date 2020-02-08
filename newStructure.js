@@ -244,13 +244,15 @@ function render(now) {
   //qp = root.children["prisms"].children.quarterPrism
   //qp.rotate(-rotationSpeed*deltaTime, 0, 0, 1)
   //qp.rotate(Math.cos(now), 0, 0, 1)
-  var date = new Date
-  var secondHand = root.children["clockNode"].children["clockSecondHand"]
-  secondHand.setRotate((date.getSeconds()/60)*360, 0, -1, 0)
-  var minuteHand = root.children["clockNode"].children["clockMinuteHand"]
-  minuteHand.setRotate((date.getMinutes()/60)*360, 0, -1, 0)
-  var minuteHand = root.children["clockNode"].children["clockHourHand"]
-  minuteHand.setRotate((date.getHours()/12)*360, 0, -1, 0)
+  if (root.children.clockNode) {
+    var date = new Date
+    var secondHand = root.children.clockNode.children.clockSecondHand
+    secondHand.setRotate((date.getSeconds()/60)*360, 0, -1, 0)
+    var minuteHand = root.children.clockNode.children.clockMinuteHand
+    minuteHand.setRotate((date.getMinutes()/60)*360, 0, -1, 0)
+    var minuteHand = root.children.clockNode.children.clockHourHand
+    minuteHand.setRotate((date.getHours()/12)*360, 0, -1, 0)
+  }
   //cg.rotate(deltaTime*50, 0, -1, 0)
   //cg.setTranslate(0,0,0)
 
@@ -426,30 +428,10 @@ function defineObjects() {
   quarterPrism.rotate(180, 0, 0, 1)
   
   prisms.scale(0.5)
-
-  //console.log(prisms.opts.name)
-  //objectsArray.push(prisms)
-
-  testCube = new Node()
-  
-  testCube.opts.origin = [0, -0.5, 0]
-  
-
-  
-  testCube.rotate(45, 0, 0, 1)
-  testCube.scale(0.1, 1, 0.1)
-
-  testCube.translate(1, 0, 0)
   
   var clockNode = createClock()
-  //console.log(clockNode)
-
-  //objectsArray.push(testCube)
-
-  //clockNode.scale(0.1, 1, 1)
-
-  //clock.rotate(90, 1, 0, 0)
-  objectsArray.push(clockNode)
+  
+  objectsArray.push(prisms)
   
   var objects = {}
   objectsArray.forEach((e, i) => {objects[e.opts.name] = e})
