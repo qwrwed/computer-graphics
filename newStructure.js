@@ -431,7 +431,7 @@ function defineObjects() {
   
   var clockNode = createClock()
   
-  objectsArray.push(prisms)
+  objectsArray.push(clockNode)
   
   var objects = {}
   objectsArray.forEach((e, i) => {objects[e.opts.name] = e})
@@ -598,10 +598,10 @@ function createHalfPrism(args) {
   var opts = Object.assign({}, defaults, args);
   half = new Node({color: opts.color, name: `${opts.name}: half-cube`})
   prism = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism`})
-  halfPrism = new Node({noModel: true, children: [half, prism]})
-
+  //halfPrism = new Node({noModel: true, children: [half, prism]})
+  halfPrism = new Node({noModel: true, children: {half, prism}})
+  half.opts.origin = [0, -0.5, 0]
   half.scale(1, 0.5, 1)
-  half.translate(0, -0.5, 0)
   prism.rotate(90, 0, 0, 1)
   return halfPrism
   
@@ -620,12 +620,12 @@ function createQuarterPrism(args) {
   half = new Node({color: opts.color, name: `${opts.name}: half-cube`})
   quarter = new Node({color: opts.color, name: `${opts.name}: quarter-cube`})
   prism = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism`})
-  quarterPrism = new Node({noModel: true, children: [quarter, half, prism]})
+  quarterPrism = new Node({noModel: true, children: {half, prism, quarter}})
 
-  quarter.translate(0, 0.25, -0.25)
+  quarter.opts.origin = [0, 0.5, -0.5]
   quarter.scale(1, 0.5, 0.5)
+  half.opts.origin = [0, -0.5, 0]
   half.scale(1, 0.5, 1)
-  half.translate(0, -0.5, 0)
   prism.rotate(90, 0, 0, 1)
   return quarterPrism
   
@@ -646,15 +646,16 @@ function createCornerPrism(args) {
   quarter2 = new Node({color: opts.color, name: `${opts.name}: quarter-cube 1`})
   prism1 = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism 1`})
   prism2 = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism 2`})
-  cornerPrism = new Node({noModel: true, children: [quarter1, quarter2, half, prism1, prism2]})
+  cornerPrism = new Node({noModel: true, children: {quarter1, quarter2, half, prism1, prism2}})
 
-  quarter1.translate(0, 0.25, -0.25)
-  quarter1.scale(1, 0.5, 0.5)
-  quarter2.translate(0.25, 0.25, 0)
-  quarter2.scale(0.5, 0.5, 1)
+  half.opts.origin = [0, -0.5, 0]
   half.scale(1, 0.5, 1)
-  half.translate(0, -0.5, 0)
-  prism1.rotate(90, 0, 0, 1)
+  quarter1.opts.origin = [0, 0.5, -0.5]
+  quarter1.scale(1, 0.5, 0.5)
+  quarter2.opts.origin = [-0.5, 0.5, 0]
+  quarter2.scale(0.5, 0.5, 1)
+  prism2.rotate(90, 0, 0, 1)
+
   return cornerPrism
   
 }
