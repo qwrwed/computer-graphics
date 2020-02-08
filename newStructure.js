@@ -47,296 +47,223 @@ var viewMatrix = new Matrix4() // The view matrix
 var projMatrix = new Matrix4() // The projection matrix
 var g_normalMatrix = new Matrix4() // Coordinate transformation matrix for normals
 
-var ANGLE_STEP = glMatrix.glMatrix.toRadian(3.0) // The increments of rotation angle (deg tp rad)
-
+// camera angle
+var ANGLE_STEP = glMatrix.glMatrix.toRadian(3.0) // The increments of rotation angle (deg to rad)
 var g_hAngle = 0.0 // horizontal camera direction
 var g_vAngle = 0.0 // vertical camera direction
 
+// eye position (coordinates follow left-hand rule)
 var POS_STEP = 0.1
 var g_xPos = 0.0
 var g_yPos = 0.0
-var g_zPos = 4.0
+var g_zPos = 4.0 // 4 metres behind origin 
+var g_Pos = [0, 0, 4]
 
+// global GL/canvas-related objects
+var canvas
 var gl
 const uniforms = new Object
 const attributes = new Object
 
-class Cube {
+var uniqueId = (() => {
+  var counter = 0
+
+  return function() {
+      return counter++
+  }
+})()
+
+// Node class definition
+// each Node represents a node in the scene graph
+// all Nodes can have any combination of the following:
+// -vertex buffers (prism shape)
+// -array of child Nodes
+// all Nodes also have their own transformation (model matrix), which is applied to all children as well as itself
+
+
+class Node {
   constructor(args) {
+    
+    var uid = uniqueId()
+
+    // define defaults
     const defaults = {
-      angle: [0,0,0],
-      color: [0,1,0],
-      children: [],
-      noModel: false,
-      name: "unnamed node"
+      uid: uid,
+      noModel: false, // if true, don't draw model (node is for grouping)
+      sides: 4, // number of side faces or top edges the prism has (4 for cuboid)
+      color: [0, 1, 0], // prism colour
+      offset: false, // rotate prism about length by 1/2*sides rotations (e.g. rotate square 45 degrees, rotate triangle 60 degrees)
+      fitInCircle: false, // true: contain top face within a 1-diameter circle. false: contain 1-diameter circle within top face
+      children: [], // child Nodes
+      name: `Unnamed Node (${uid})`, // node name
+      origin: [0,0,0] // scale/rotation origin
     }
+
     // define prism attributes by overwriting defaults with given args
     this.opts = Object.assign({}, defaults, args);
+
     // assign options to instance data (using only property names contained
     // in defaults object to avoid copying properties we don't want)
     Object.keys(defaults).forEach(prop => {
       this[prop] = this.opts[prop];
     });
-
     
-    
-    this.attributes = {
-      aColor: {
-        size: 3,
-        bufferData: new Float32Array(
-          Array(24).fill(this.opts.color).flat()
-        ),
-      },
-      aNormal: {
-        size:3,
-        bufferData: new Float32Array([
-          0.0, 0.0, 1.0,   0.0, 0.0, 1.0,   0.0, 0.0, 1.0,   0.0, 0.0, 1.0,
-          1.0, 0.0, 0.0,   1.0, 0.0, 0.0,   1.0, 0.0, 0.0,   1.0, 0.0, 0.0,
-          0.0, 1.0, 0.0,   0.0, 1.0, 0.0,   0.0, 1.0, 0.0,   0.0, 1.0, 0.0,
-         -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,
-          0.0,-1.0, 0.0,   0.0,-1.0, 0.0,   0.0,-1.0, 0.0,   0.0,-1.0, 0.0,
-          0.0, 0.0,-1.0,   0.0, 0.0,-1.0,   0.0, 0.0,-1.0,   0.0, 0.0,-1.0
-        ]),
-      },
-      aPosition: {
-        size:3,
-        bufferData: new Float32Array([
-          1.0, 1.0, 1.0,  -1.0, 1.0, 1.0,  -1.0,-1.0, 1.0,   1.0,-1.0, 1.0,
-          1.0, 1.0, 1.0,   1.0,-1.0, 1.0,   1.0,-1.0,-1.0,   1.0, 1.0,-1.0,
-          1.0, 1.0, 1.0,   1.0, 1.0,-1.0,  -1.0, 1.0,-1.0,  -1.0, 1.0, 1.0,
-         -1.0, 1.0, 1.0,  -1.0, 1.0,-1.0,  -1.0,-1.0,-1.0,  -1.0,-1.0, 1.0,
-         -1.0,-1.0,-1.0,   1.0,-1.0,-1.0,   1.0,-1.0, 1.0,  -1.0,-1.0, 1.0,
-          1.0,-1.0,-1.0,  -1.0,-1.0,-1.0,  -1.0, 1.0,-1.0,   1.0, 1.0,-1.0
-       ]),
-     },
-    };
-    //console.log(this.attributes.aColor)
-    //console.log(this.opts.color)
-    //console.log()
-    this.indices = new Uint8Array([
-      0, 1, 2,   0, 2, 3,
-      4, 5, 6,   4, 6, 7,
-      8, 9,10,   8,10,11,
-      12,13,14,  12,14,15,
-      16,17,18,  16,18,19,
-      20,21,22,  20,22,23
-    ]);
-  this.modelMatrix = new Matrix4
-  this.normalMatrix = new Matrix4
+    // initialise model and normal matrices
+    this.modelMatrix = new Matrix4
+    this.normalMatrix = new Matrix4
 
+    this.scaleMatrix = new Matrix4
+    this.rotationMatrix = new Matrix4
+    this.translationMatrix = new Matrix4
+
+    //if the model is to be drawn, initialise vertex buffers
+    if (!this.opts.noModel) {
+      this.buffers = initPrismVertexBuffers(this.sides, this.color, this.offset, this.fitInCircle)
+    }
   }
 
+  // scale operation: take 1 or 3 arguments
   scale(x, y, z) {
-    if ((typeof(z) === 'undefined') && (typeof(y) === 'undefined')) {
+    if ((typeof (z) === 'undefined') && (typeof (y) === 'undefined')) {
       z = x
       y = x
     }
+    // scale from specified origin
+    this.modelMatrix.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
     this.modelMatrix.scale(x, y, z)
-    //this.children.forEach((child, i) => { child.scale(x, y, z) })
-    //console.log("scaling", this.name, x, y, z)
+    this.modelMatrix.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
+
+    this.scaleMatrix.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
+    this.scaleMatrix.scale(x, y, z)
+    this.scaleMatrix.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
   }
 
+  // simple translate operation
   translate(x, y, z) {
     this.modelMatrix.translate(x, y, z)
-    //this.children.forEach((child, i) => child.translate(x, y, z))
+    this.translationMatrix.translate(x, y, z)
   }
 
-  rotate(theta, x, y, z) {
-    this.modelMatrix.rotate(theta, x, y, z)
-    //this.children.forEach((child, i) => child.rotate(theta, x, y, z))
-  }
-
-  draw(parentModelMatrix) {
-  if (typeof(parentModelMatrix) === 'undefined') {
-    parentModelMatrix = new Matrix4
-  }
-    // Write the vertex property to buffers (coordinates, colors and normals)
-  if (!initArrayBuffer('a_Position', this.attributes.aPosition.bufferData, this.attributes.aPosition.size, gl.FLOAT)) return -1
-  if (!initArrayBuffer('a_Color',    this.attributes.aColor.bufferData, this.attributes.aColor.size, gl.FLOAT)) return -1
-  if (!initArrayBuffer('a_Normal',   this.attributes.aNormal.bufferData, this.attributes.aNormal.size, gl.FLOAT)) return -1
-
-  var mm = new Matrix4;
-  if (this.opts.translate) {
-    mm.translate(...this.opts.translate);
-  }
-  if (this.opts.scale) {
-    mm.scale(...this.opts.scale);
-  }
-  if (this.opts.angle[0] || this.opts.angle[1] || this.opts.angle[2]) {
-    mm.rotate(this.opts.angle[0], 1, 0, 0)
-    mm.rotate(this.opts.angle[1], 0, 1, 0)
-    mm.rotate(this.opts .angle[2], 0, 0, 1)
-  }
-
-  var newModelMatrix = new Matrix4
-  glMatrix.mat4.multiply(newModelMatrix.elements, parentModelMatrix.elements, this.modelMatrix.elements)
-  //glMatrix.mat4.multiply(newModelMatrix, this.modelMatrix, parentModelMatrix)
-  //console.log(this.noModel)
-  //console.log(this.modelMatrix.elements)
-  //console.log(parentModelMatrix.elements)
-  //console.log(newModelMatrix.elements)
-  //console.log()
-  //newModelMatrix = this.modelMatrix
-
-  var test2 = new Matrix4
-  var test01 = new Matrix4
-  var test3 = new Matrix4
-
-  test2.scale(2,2,2)
-  test01.scale(0.1, 0.1, 0.1)
-
-  glMatrix.mat4.multiply(test3.elements, test2.elements, test01.elements)
-  //console.log(test2)
-  //console.log(test3)
-
-  if (!this.noModel) {
-  // Write the indices to the buffer object
-  var indexBuffer = gl.createBuffer()
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indices, gl.STATIC_DRAW)
-  
-  //gl.uniformMatrix4fv(uniforms.ModelMatrix, false, this.modelMatrix.elements)
-  gl.uniformMatrix4fv(uniforms.ModelMatrix, false, newModelMatrix.elements)
-  //console.log(this.modelMatrix.elements)
-  //console.log(mm.elements)
-  //gl.uniformMatrix4fv(uniforms.ModelMatrix, false, mm.elements)
-  
-  // Calculate the normal transformation matrix and pass it to u_NormalMatrix
-  this.normalMatrix.setInverseOf(this.modelMatrix)
-  this.normalMatrix.transpose()
-  gl.uniformMatrix4fv(uniforms.NormalMatrix, false, this.normalMatrix.elements)
-
-  // Draw the cube
-  gl.drawElements(gl.TRIANGLES, this.indices.length, gl.UNSIGNED_BYTE, 0)
-  }
-  this.children.forEach((child, i) => child.draw(newModelMatrix))
-
-
-  }
-
-}
-/*
-class Node {
-  constructor(args) {
-
-    // define defaults
-    const defaults = {
-      noModel: false,
-      sides: 4,
-      color: [0, 1, 0],
-      offset: false,
-      fitInCircle: false,
-      children: [],
-      name: "Unnamed Node"
+    // simple translate operation
+    setTranslate(x, y, z) {
+      this.modelMatrix.setTranslate(x, y, z)
+      this.translationMatrix.setTranslate(x, y, z)
     }
 
-    // define prism attributes by overwriting defaults with given args
-    const prismAttributes = Object.assign({}, defaults, args);
-
-    // assign options to instance data (using only property names contained
-    // in defaults object to avoid copying properties we don't want)
-    Object.keys(defaults).forEach(prop => {
-      this[prop] = prismAttributes[prop];
-    });
-
-    this.translationMatrix = new Matrix4
-    this.rotationMatrix = new Matrix4
-    this.scaleMatrix = new Matrix4
-
-    this.modelMatrix = new Matrix4
-    this.normalMatrix = new Matrix4
-  }
-
-  scale(x, y, z) {
-    console.log("SCALING " + this.name)
-    console.log(this.scaleMatrix.elements)
-    this.scaleMatrix.scale(x, y, z)
-    console.log(this.scaleMatrix.elements)
-    this.children.forEach((child, i) => { child.scale(x, y, z) })
-  }
-
-  translate(x, y, z) {
-    this.translationMatrix.translate(x, y, z)
-    this.children.forEach((child, i) => child.translate(x, y, z))
-  }
-
+  // rotate operation
   rotate(theta, x, y, z) {
+    // rotate about specified origin
+    this.modelMatrix.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
+    this.modelMatrix.rotate(theta, x, y, z)
+    this.modelMatrix.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
+
+    this.rotationMatrix.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
     this.rotationMatrix.rotate(theta, x, y, z)
-    this.children.forEach((child, i) => child.rotate(theta, x, y, z))
+    this.rotationMatrix.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
   }
 
-  draw() {
-    if (!this.noModel) {
+  // rotate operation
+  setRotate(theta, x, y, z) {
+    this.rotationMatrix.setRotate(0, x, y, z)
+    this.rotate(theta, x, y, z)
+    //this.rotationMatrix.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])    
+  }
 
-      // use gl-matrix as cuon-matrix's concat modifies the transformation vectors in place
+  // Node.draw() function
+  draw(parentModelMatrix) {
+    
+    //console.log(this.uid)
+    //console.log(this.name)
+    
+    this.modelMatrix = new Matrix4
+    /*
+    glMatrix.mat4.multiply(this.modelMatrix.elements, (new Matrix4).elements, this.scaleMatrix.elements )
+    glMatrix.mat4.multiply(this.modelMatrix.elements, this.modelMatrix.elements, this.rotationMatrix.elements )
+    glMatrix.mat4.multiply(this.modelMatrix.elements, this.modelMatrix.elements, this.translationMatrix.elements )
+    */
 
-      let matT = this.translationMatrix.elements
-      let matTR = []
-      let matTRS = []
-      glMatrix.mat4.multiply(matTR, matT, this.rotationMatrix.elements)
-      glMatrix.mat4.multiply(matTRS, matTR, this.scaleMatrix.elements)
-      let matTS = []
-      let matTSR = []
-      glMatrix.mat4.multiply(matTS, matT, this.scaleMatrix.elements)
-      glMatrix.mat4.multiply(matTSR, matTS, this.rotationMatrix.elements)
+   
+   
+   glMatrix.mat4.multiply(this.modelMatrix.elements, (new Matrix4).elements, this.translationMatrix.elements )
+   glMatrix.mat4.multiply(this.modelMatrix.elements, this.modelMatrix.elements, this.rotationMatrix.elements )
+   glMatrix.mat4.multiply(this.modelMatrix.elements, this.modelMatrix.elements, this.scaleMatrix.elements )
 
-      let matR = this.rotationMatrix.elements
-      let matRT = []
-      let matRTS = []
-      glMatrix.mat4.multiply(matRT, matR, this.translationMatrix.elements)
-      glMatrix.mat4.multiply(matRTS, matRT, this.scaleMatrix.elements)
-      let matRS = []
-      let matRST = []
-      glMatrix.mat4.multiply(matRS, matR, this.scaleMatrix.elements)
-      glMatrix.mat4.multiply(matRST, matRS, this.translationMatrix.elements)
+    // multiply model matrix by parent's model matrix to propagate transformations down the scene graph
+    if (typeof (parentModelMatrix) === 'undefined') {
+      parentModelMatrix = new Matrix4 // identity matrix
+    }
+    var newModelMatrix = new Matrix4
+    glMatrix.mat4.multiply(newModelMatrix.elements, parentModelMatrix.elements, this.modelMatrix.elements)
 
-      let matS = this.scaleMatrix.elements
-      let matST = []
-      let matSTR = []
-      glMatrix.mat4.multiply(matST, matS, this.translationMatrix.elements)
-      glMatrix.mat4.multiply(matSTR, matST, this.rotationMatrix.elements)
-      let matSR = []
-      let matSRT = []
-      glMatrix.mat4.multiply(matSR, matS, this.rotationMatrix.elements)
-      glMatrix.mat4.multiply(matSRT, matSR, this.translationMatrix.elements)
+    // only draw self if needed    
+    if (!this.opts.noModel) {
+      
+      // Write the vertex property to buffers (coordinates, colors and normals)
+      if (!initArrayBuffer('a_Position', this.buffers.vertices, 3, gl.FLOAT)) return -1
+      if (!initArrayBuffer('a_Color', this.buffers.colors, 3, gl.FLOAT)) return -1
+      if (!initArrayBuffer('a_Normal', this.buffers.normals, 3, gl.FLOAT)) return -1
 
-      this.modelMatrix.elements = matTRS
-      //this.modelMatrix.elements = matTSR
-      //this.modelMatrix.elements = matRTS
-      //this.modelMatrix.elements = matRST
-      //this.modelMatrix.elements = matSTR
-      //this.modelMatrix.elements = matSRT
-
-      this.numIndices = initPrismVertexBuffers(this.sides, this.color, this.offset, this.fitInCircle)
-      if (this.numIndices < 0) {
-        console.log('Failed to set the vertex information')
-        return
-      }
-      gl.uniformMatrix4fv(uniforms.ModelMatrix, false, this.modelMatrix.elements)
+      // Write the indices to the buffer object
+      var indexBuffer = gl.createBuffer()
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.buffers.indices, gl.STATIC_DRAW)
+      gl.uniformMatrix4fv(uniforms.ModelMatrix, false, newModelMatrix.elements)
 
       // Calculate the normal transformation matrix and pass it to u_NormalMatrix
-      this.normalMatrix.setInverseOf(this.modelMatrix)
+      this.normalMatrix.setInverseOf(newModelMatrix)
       this.normalMatrix.transpose()
       gl.uniformMatrix4fv(uniforms.NormalMatrix, false, this.normalMatrix.elements)
 
-      // Draw the cube
-      gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_BYTE, 0)
-      //gl.drawElements(gl.LINES, this.numIndices, gl.UNSIGNED_BYTE, 0);
-      //gl.drawElements(gl.POINTS, this.numIndices, gl.UNSIGNED_BYTE, 0);
+      // Draw the prism
+      gl.drawElements(gl.TRIANGLES, this.buffers.indices.length, gl.UNSIGNED_BYTE, 0)
     }
-    //modelMatrix = popMatrix()
-    this.children.forEach((e, i) => e.draw())
+    // draw all children
+    //this.opts.children.forEach((child, i) => child.draw(newModelMatrix))
+    Object.keys(this.opts.children).forEach((key) => this.opts.children[key].draw(newModelMatrix))
   }
 }
-*/
+
+// scene root: cannot have transformations or model data
 const root = new Object({
   children: [],
-  draw() { this.children.forEach((e, i) => e.draw(new Matrix4)) }
+  draw() {Object.keys(this.children).forEach((key) => this.children[key].draw(new Matrix4))},
 })
 
-var canvas
+
+var rotationSpeed = 360 //degrees per second
+var then = 0
+// Draw the scene repeatedly
+function render(now) {
+  refreshView()
+  //console.log("teeeeeessssssssttttttt")
+  now *= 0.001;  // convert to seconds
+  const deltaTime = now - then;
+  then = now;
+
+  //drawScene(gl, programInfo, buffers, deltaTime);
+  //qp = root.children["prisms"].children.quarterPrism
+  //qp.rotate(-rotationSpeed*deltaTime, 0, 0, 1)
+  //qp.rotate(Math.cos(now), 0, 0, 1)
+  var date = new Date
+  var secondHand = root.children["clockNode"].children["clockSecondHand"]
+  secondHand.setRotate((date.getSeconds()/60)*360, 0, -1, 0)
+  var minuteHand = root.children["clockNode"].children["clockMinuteHand"]
+  minuteHand.setRotate((date.getMinutes()/60)*360, 0, -1, 0)
+  var minuteHand = root.children["clockNode"].children["clockHourHand"]
+  minuteHand.setRotate((date.getHours()/12)*360, 0, -1, 0)
+  //cg.rotate(deltaTime*50, 0, -1, 0)
+  //cg.setTranslate(0,0,0)
+
+  //cg.translate(0.1, 0, 0)
+  //cg.rotate(0.5, 1, 0, 0)
+  root.draw()
+  
+  requestAnimationFrame(render);
+}
+
 
 function main() {
+
   // Retrieve <canvas> element
   canvas = document.getElementById('webgl')
   canvas.width = document.body.clientWidth
@@ -373,7 +300,6 @@ function main() {
   uniforms.LightDirection = gl.getUniformLocation(gl.program, 'u_LightDirection')
   uniforms.isLighting = gl.getUniformLocation(gl.program, 'u_isLighting')
 
-
   // Set the light color (white)
   gl.uniform3f(uniforms.LightColor, 1.0, 1.0, 1.0)
   // Set the light direction (in the world coordinate)
@@ -381,180 +307,161 @@ function main() {
   lightDirection.normalize() // Normalize
   gl.uniform3fv(uniforms.LightDirection, lightDirection.elements)
 
-  // Calculate the view matrix and the projection matrix
-  //setLookAt: (fromX, fromY, fromZ,   toX, toY, toZ,   upVector)
-
-
-  refreshView()
+  // calculate the view matrix and pass to uniform variable, and clear the canvas
+  //refreshView()
+  // calculate the projection matrix and pass to uniform variable
   projMatrix.setPerspective(30, canvas.width / canvas.height, 1, 100)
-  // Pass the model, view, and projection matrix to the uniform variable respectively
   gl.uniformMatrix4fv(uniforms.ProjMatrix, false, projMatrix.elements)
 
-
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
   gl.uniform1i(uniforms.isLighting, true) // Will apply lighting
 
   document.onkeydown = function (ev) {
     keydown(ev)
   }
+  
 
-  defineObjects()
+  // define objects and push to root
+  root.children = defineObjects()
+  //var he = defineObjects()
+  //console.log(he)
 
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-  root.draw()
+  // draw root
+  //root.draw()
+  requestAnimationFrame(render);
 }
 
+//set view matrix according to current position and camera angle
 function refreshView() {
-  const eyePos = [g_xPos, g_yPos, g_zPos]
+  //const eyePos = [g_xPos, g_yPos, g_zPos]
+  const eyePos = g_Pos
   const eyeTargetRelative = [Math.sin(g_hAngle), Math.sin(g_vAngle), -Math.cos(g_hAngle) * Math.cos(g_vAngle)]
   var eyeTargetAbsolute = []
   glMatrix.vec3.add(eyeTargetAbsolute, eyePos, eyeTargetRelative)
-
-  eyeTargetAbsolute2 = [g_xPos, g_yPos - 1, g_zPos - 3]
-  //console.log(eyePos)
-  //console.log(eyeTargetAbsolute)
-  //console.log(eyeTargetAbsolute2)
   const upVector = [0, 1, 0]
   viewMatrix.setLookAt(...eyePos, ...eyeTargetAbsolute, ...upVector)
   gl.uniformMatrix4fv(uniforms.ViewMatrix, false, viewMatrix.elements)
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 }
 
-function halfPrism(args) {
-  const block = new Node({ noModel: true, name: "halfPrismBlock" })
-  const half = new Node({ color: [1, 0, 0], name: "halfCube", sides: 5 })
+function createClock() {
 
-  const prism = new Node({ color: [1, 1, 0], sides: 32, fitInCircle: true, name: "prism" })
+  clockGroupArray = []
+  var clockNode = new Node({
+    noModel: true,
+    name: "clockNode"
+  })
 
-  //make transformations local
-  half.rotate(90, 1, 1, 0)
-  half.scale(1, 0.5, 1) //local?
-  //half.translate(0, -0.25, 0) //global?
-  //prism.rotate(90, 0, 0, 1)
-  //block.children.push(half)
-  //block.children.push(prism)
 
-  //half.rotate(90, -1, 1, 0)
+  var clockFaceBorder = new Node({
+    sides: 32,
+    name: "clockFaceBorder",
+    color: [0.5,0.5,0.5]
+  })
+  clockFaceBorder.scale(1.1, 0.099, 1.1)
+  clockGroupArray.push(clockFaceBorder)
 
-  //block.scale(1,0.1,1)
-  //block.rotate(90, -1, 1, 0)
-  //return block
-  root.children.push(half)
+  var clockFace = new Node({
+    sides: 32,
+    name: "clockFace",
+    color: [1,1,1]
+  })
+  clockFace.scale(1, 0.1, 1)
+  clockGroupArray.push(clockFace)
+
+
+  var clockHourHand = new Node({
+    sides: 4,
+    color: [0.5,0.5,0.5],
+    name: "clockHourHand"
+  })
+  clockHourHand.opts.origin = [0., 0, 0.5]
+  clockHourHand.translate(0, 0.1, -0.5)  
+  clockHourHand.scale(0.04, 0.04, 0.5)
+  clockGroupArray.push(clockHourHand)
+
+  var clockMinuteHand = new Node({
+    sides: 4,
+    color: [0.5,0.5,0.5],
+    name: "clockMinuteHand"
+  })
+  clockMinuteHand.opts.origin = [0, 0, 0.5]
+  clockMinuteHand.translate(0, 0.1, -0.5)  
+  clockMinuteHand.scale(0.03, 0.03, 0.6)
+  clockGroupArray.push(clockMinuteHand)
+
+  var clockSecondHand = new Node({
+    sides: 4,
+    color: [1, 0, 0],
+    name: "clockSecondHand"
+  })
+  clockSecondHand.opts.origin = [0.0, 0, 0.5]
+  clockSecondHand.translate(0, 0.1, -0.5)  
+  clockSecondHand.scale(0.02, 0.02, 0.65)
+  clockGroupArray.push(clockSecondHand)
+  
+  clockGroupArray.forEach((e, i) => {clockNode.children[e.opts.name] = e})
+  clockNode.rotate(90, 1, 0, 0)
+
+  return clockNode
 }
 
 // ALL MANUAL DEFINITION OF OBJECTS GOES HERE
 function defineObjects() {
+  var objectsArray = []
+  const args = {sides: 32}
+  var halfPrism = createHalfPrism(args)
+  var quarterPrism = createQuarterPrism(args)
+  var cornerPrism = createCornerPrism(args)
 
-
-  /*
-  const pipe1 = new Node({
-    sides: 4,
-    color: [1, 0, 0],
-    offset: true
-  })
-
-  const leg1 = new Node({
-    sides: 3,
-    color: [1, 0.5, 0],
-    children: [pipe1],
-  })
-
-  const pipe2 = new Node({
-    sides: 4,
-    color: [0, 0, 1],
-    offset: true
-  })
-
-  const leg2 = new Node({
-    sides: 5,
-    color: [0, 0.9, 1],
-    children: [pipe2],
-  })
-
-  leg2.rotate(90, 0, 0, 1)
-  leg2.translate(1, 0, 0)
-  leg2.scale(0.05, 2, 0.05)
-
-  root.children.push(leg1)
-  root.children.push(leg2)
-
-  */
-  //var x = new Node({ sides: 32 })
-  //root.children.push(x)
-/*
-  blu = new Cube({color:[0,0,1], translate:[3,0,0]}),
-  gre = new Cube({color:[0,1,0], scale:[0.5,0.5,0.5]}),
-  cya = new Cube({color:[0,1,1], scale:[0.5,0.5,0.5], translate:[-2, 2, 0]}),
-  red = new Cube({
-    color:[1,0,0],
-    scale:[0.6,0.6,0.6],
-    translate:[-2, -2, 2],
-    angle: [0,35,0],
-  }), 
-  mag = new Cube({
-    color:[1,0,1],
-    scale:[0.2,0.2,0.2],
-    translate:[2, 2, 2],
-    angle: [75,0,0],
-  }),
-  cubs = [
-    blu,
-    gre,
-    cya,
-    red,
-    mag  
-  ]
-
-
-  blu.translate(3, 0, 0)
-  cya.translate(-2, 2, 0)
-  red.translate(-2,-2,2)
-  mag.translate(2,2,2)
-
-  gre.scale(0.5, 0.5, 0.5)
-  cya.scale(0.5, 0.5, 0.5)
-  red.scale(0.6, 0.6, 0.6)
-  mag.scale(0.2, 0.2, 0.2)
-
-  red.rotate(35, 0, 1, 0)
-  mag.rotate(65, 1, 0, 0)
-
-  allCubes = new Cube({
+  var prisms = new Node({
     noModel: true,
-    color: [0,0,0],
-    children: [blu, gre, cya, red, mag]
+    children: {halfPrism, quarterPrism, cornerPrism},
+    name: "prisms"
   })
+  
+  quarterPrism.opts.origin = [0, -0.5, 0]
+  halfPrism.translate(2, 0, 0)
+  quarterPrism.translate(-2, 0, 0)
+  quarterPrism.scale(0.5)
+  quarterPrism.rotate(180, 0, 0, 1)
+  
+  prisms.scale(0.5)
 
-  allCubes.scale(0.1, 0.1, 0.1)
-*/
-  child = new Cube({
-    name: "child"
-  })
-  parent = new Cube({
-    noModel: true,
-    children: [child],
-    name: "parent"
-  })
+  //console.log(prisms.opts.name)
+  //objectsArray.push(prisms)
 
-  child.rotate(45, 0, 0, 1)
-  //child.scale(0.1, 1, 1)
-  //child.scale(0.1)
-  //child.scale(0.01)
-  //child.translate(1, 0, 0)
-  //parent.translate(0, 1, 0)
-  parent.scale(1, 0.1, 1)
-  //parent.scale(0.1, 1, 1)
-  root.children.push(parent)
+  testCube = new Node()
+  
+  testCube.opts.origin = [0, -0.5, 0]
+  
 
-  //root.children.push(allCubes)
-  //let block1 = halfPrism()
-  //let block2 = halfPrism()
-  //block1.translate(-1, 0, 0)
-  //block2.scale(1, 0.1, 1)
-  //root.children.push(block2)
+  
+  testCube.rotate(45, 0, 0, 1)
+  testCube.scale(0.1, 1, 0.1)
+
+  testCube.translate(1, 0, 0)
+  
+  var clockNode = createClock()
+  //console.log(clockNode)
+
+  //objectsArray.push(testCube)
+
+  //clockNode.scale(0.1, 1, 1)
+
+  //clock.rotate(90, 1, 0, 0)
+  objectsArray.push(clockNode)
+  
+  var objects = {}
+  objectsArray.forEach((e, i) => {objects[e.opts.name] = e})
+  //console.log(objects)
+  return objects
 }
+
+//handle keypress
 
 function keydown(ev) {
   //console.log(ev.keyCode)
+  const at = [Math.sin(g_hAngle), Math.sin(g_vAngle), -Math.cos(g_hAngle) * Math.cos(g_vAngle)]
   switch (ev.keyCode) {
     case 38: // Up arrow key -> the positive rotation of arm1 around the x-axis
       //g_vAngle = Math.max((g_vAngle - ANGLE_STEP), -Math.PI/2)
@@ -574,15 +481,19 @@ function keydown(ev) {
       break
     case 87: // W -> go forwards
       g_zPos = (g_zPos - POS_STEP)
+      glMatrix.vec3.add(g_Pos, g_Pos, at.map(e=>e*POS_STEP))
       break
     case 83: // S -> go backwards
       g_zPos = (g_zPos + POS_STEP)
+      glMatrix.vec3.sub(g_Pos, g_Pos, at.map(e=>e*POS_STEP))
       break
     case 65: // A -> go left
       g_xPos = (g_xPos - POS_STEP)
+      glMatrix.vec3.sub(g_Pos, g_Pos, [-at[2], at[1], at[0]].map(e=>e*POS_STEP))
       break
     case 68: // D -> go right
       g_xPos = (g_xPos + POS_STEP)
+      glMatrix.vec3.add(g_Pos, g_Pos, [-at[2], at[1], at[0]].map(e=>e*POS_STEP))
       break
     case 81: // Q -> go up
       g_yPos = (g_yPos + POS_STEP)
@@ -593,12 +504,12 @@ function keydown(ev) {
     default: return // Skip drawing at no effective action
   }
 
-  refreshView()
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-  root.draw()
+  //refreshView()
+  //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+  //root.draw()
 }
 
-/*
+
 // modulo function from https://stackoverflow.com/a/42131603
 function mod(x, N) {
   return (x % N + N) % N
@@ -610,6 +521,7 @@ function addVector3(a, b, c) {
   return c.map((e, i) => e + a[i] + b[i])
 }
 
+// create vertex buffers for prism
 function initPrismVertexBuffers(sides = 4, color = [1, 0, 0], offset = false, fitInCircle = false) {
   // sides = 4
 
@@ -672,25 +584,10 @@ function initPrismVertexBuffers(sides = 4, color = [1, 0, 0], offset = false, fi
     indicesJS.flat(Infinity)
   )
 
-  // Write the vertex property to buffers (coordinates, colors and normals)
-  if (!initArrayBuffer('a_Position', vertices, 3, gl.FLOAT)) return -1
-  if (!initArrayBuffer('a_Color', colors, 3, gl.FLOAT)) return -1
-  if (!initArrayBuffer('a_Normal', normals, 3, gl.FLOAT)) return -1
+  return {indices, vertices, colors, normals}
+}
 
-  // Write the indices to the buffer object
-  var indexBuffer = gl.createBuffer()
-  if (!indexBuffer) {
-    console.log('Failed to create the buffer object')
-    return false
-  }
-
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
-
-  return indices.length
-}*/
-
-function initArrayBuffer(attribute, data, num, type, stride=0, offset=0) {
+function initArrayBuffer(attribute, data, num, type, stride = 0, offset = 0) {
   var buffer = gl.createBuffer()
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
   gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW)
@@ -701,4 +598,81 @@ function initArrayBuffer(attribute, data, num, type, stride=0, offset=0) {
   gl.bindBuffer(gl.ARRAY_BUFFER, null)
 
   return true
+}
+
+
+
+// functions for composited primitives:
+
+function createHalfPrism(args) {
+
+  // define defaults
+  const defaults = {
+    sides: 4,
+    color: [0, 1, 0],
+    name: "Half Prism"
+  }
+
+  var opts = Object.assign({}, defaults, args);
+  half = new Node({color: opts.color, name: `${opts.name}: half-cube`})
+  prism = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism`})
+  halfPrism = new Node({noModel: true, children: [half, prism]})
+
+  half.scale(1, 0.5, 1)
+  half.translate(0, -0.5, 0)
+  prism.rotate(90, 0, 0, 1)
+  return halfPrism
+  
+}
+
+function createQuarterPrism(args) {
+
+  // define defaults
+  const defaults = {
+    sides: 4,
+    color: [0, 1, 0],
+    name: "Quarter Prism"
+  }
+
+  var opts = Object.assign({}, defaults, args);
+  half = new Node({color: opts.color, name: `${opts.name}: half-cube`})
+  quarter = new Node({color: opts.color, name: `${opts.name}: quarter-cube`})
+  prism = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism`})
+  quarterPrism = new Node({noModel: true, children: [quarter, half, prism]})
+
+  quarter.translate(0, 0.25, -0.25)
+  quarter.scale(1, 0.5, 0.5)
+  half.scale(1, 0.5, 1)
+  half.translate(0, -0.5, 0)
+  prism.rotate(90, 0, 0, 1)
+  return quarterPrism
+  
+}
+
+function createCornerPrism(args) {
+
+  // define defaults
+  const defaults = {
+    sides: 4,
+    color: [0, 1, 0],
+    name: "Corner Prism"
+  }
+
+  var opts = Object.assign({}, defaults, args);
+  half = new Node({color: opts.color, name: `${opts.name}: half-cube`})
+  quarter1 = new Node({color: opts.color, name: `${opts.name}: quarter-cube 1`})
+  quarter2 = new Node({color: opts.color, name: `${opts.name}: quarter-cube 1`})
+  prism1 = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism 1`})
+  prism2 = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism 2`})
+  cornerPrism = new Node({noModel: true, children: [quarter1, quarter2, half, prism1, prism2]})
+
+  quarter1.translate(0, 0.25, -0.25)
+  quarter1.scale(1, 0.5, 0.5)
+  quarter2.translate(0.25, 0.25, 0)
+  quarter2.scale(0.5, 0.5, 1)
+  half.scale(1, 0.5, 1)
+  half.translate(0, -0.5, 0)
+  prism1.rotate(90, 0, 0, 1)
+  return cornerPrism
+  
 }
