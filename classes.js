@@ -116,12 +116,14 @@ function main () {
   gl.uniformMatrix4fv(u_ProjMatrix, false, projMatrix.elements)
 
   document.onkeydown = function (ev) {
-    keydown(ev, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting)
+    //keydown(ev, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting)
   }
 
-  draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting)
+  //draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting)
+  drawPrism({gl, u_ModelMatrix, u_NormalMatrix, u_isLighting}, {})
 }
 
+/*
 function keydown (ev, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
   console.log(ev.keyCode)
   switch (ev.keyCode) {
@@ -160,7 +162,7 @@ function keydown (ev, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
 
   // Draw the scene
   draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting)
-}
+}*/
 
 function normal3 (A, B, C) { // normal vector from three points
   var AB = subvector2(B, A)
@@ -266,6 +268,12 @@ function initPrismVertexBuffers (gl, sides = 4, color = [1, 0, 0], offset = fals
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
 
   return indices.length
+}
+
+class Prism {
+  constructor(){
+    console.log("made a prism!")
+  }
 }
 
 function initArrayBuffer (gl, attribute, data, num, type) {
@@ -593,7 +601,8 @@ function draw (gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
   modelMatrix.rotate(g_yAngle, 0, 1, 0) // Rotate along y axis
   modelMatrix.rotate(g_xAngle, 1, 0, 0) // Rotate along x axis
 
-  drawTableAndChairs(data)
+  //let box = new Prism
+  //drawTableAndChairs(data)
   
   //modelMatrix.scale(1, 1, 0.1)
   
