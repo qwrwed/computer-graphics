@@ -45,18 +45,20 @@ var viewMatrix = new Matrix4() // The view matrix
 var projMatrix = new Matrix4() // The projection matrix
 var g_normalMatrix = new Matrix4() // Coordinate transformation matrix for normals
 
+const cameraDefaults = {
+  g_hAngle: glMatrix.glMatrix.toRadian(75.0),
+  g_vAngle: glMatrix.glMatrix.toRadian(-10.0),
+  g_Pos: [-5, 1.5, 1]
+}
+
 // camera angle
 var ANGLE_STEP = glMatrix.glMatrix.toRadian(3.0) // The increments of rotation angle (deg to rad)
-var g_hAngle = 0.0 // horizontal camera direction
-var g_vAngle = 0.0 // vertical camera direction
+var g_hAngle = cameraDefaults.g_hAngle // horizontal camera direction
+var g_vAngle = cameraDefaults.g_vAngle // vertical camera direction
 
 // eye position (coordinates follow left-hand rule)
 var POS_STEP = 0.1
-var g_xPos = 0.0
-var g_yPos = 0.0
-var g_zPos = 4.0 // 4 metres behind origin 
-var g_Pos = [0, 1, 4]
-var g_Pos = [0, 0, 4]
+var g_Pos = [...cameraDefaults.g_Pos]
 var POS_SPEED = 1.4 // meters per second
 
 
@@ -95,7 +97,8 @@ class Node {
       offset: false, // rotate prism about length by 1/2*sides rotations (e.g. rotate square 45 degrees, rotate triangle 60 degrees)
       fitInCircle: false, // true: contain top face within a 1-diameter circle. false: contain 1-diameter circle within top face
       name: `Unnamed Node (${uid})`, // node name
-      origin: [0, 0, 0] // scale/rotation origin
+      origin: [0, 0, 0], // scale/rotation origin
+      hidden: false,
     }
 
     // define prism attributes by overwriting defaults with given args
@@ -151,9 +154,8 @@ class Node {
   // absolute rotation
   setRotate(theta, x, y, z) {
     this.matrices.rotation.setRotate(0, x, y, z)
-    this.matrices.rotation.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
     this.rotate(theta, x, y, z)
-    this.matrices.rotation.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
+    //this.matrices.rotation.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])    
   }
 
   // Node.draw() function
@@ -170,32 +172,35 @@ class Node {
     var newModelMatrix = new Matrix4
     glMatrix.mat4.multiply(newModelMatrix.elements, parentModelMatrix.elements, this.matrices.model.elements)
 
-    // only draw self if needed    
-    if (!this.opts.noModel) {
+    // only self if needed    
+    if (!this.opts.hidden) {
+      if (!this.opts.noModel) {
 
-      // Write the vertex property to buffers (coordinates, colors and normals)
-      if (!initArrayBuffer('a_Position', this.buffers.vertices, 3, gl.FLOAT)) return -1
-      if (!initArrayBuffer('a_Color', this.buffers.colors, 3, gl.FLOAT)) return -1
-      if (!initArrayBuffer('a_Normal', this.buffers.normals, 3, gl.FLOAT)) return -1
+        // Write the vertex property to buffers (coordinates, colors and normals)
+        if (!initArrayBuffer('a_Position', this.buffers.vertices, 3, gl.FLOAT)) return -1
+        if (!initArrayBuffer('a_Color', this.buffers.colors, 3, gl.FLOAT)) return -1
+        if (!initArrayBuffer('a_Normal', this.buffers.normals, 3, gl.FLOAT)) return -1
 
-      // Write the indices to the buffer object
-      var indexBuffer = gl.createBuffer()
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.buffers.indices, gl.STATIC_DRAW)
-      gl.uniformMatrix4fv(uniforms.ModelMatrix, false, newModelMatrix.elements)
+        // Write the indices to the buffer object
+        var indexBuffer = gl.createBuffer()
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.buffers.indices, gl.STATIC_DRAW)
+        gl.uniformMatrix4fv(uniforms.ModelMatrix, false, newModelMatrix.elements)
 
-      this.matrices.normal = new Matrix4
-      // Calculate the normal transformation matrix and pass it to u_NormalMatrix
-      this.matrices.normal.setInverseOf(newModelMatrix)
-      this.matrices.normal.transpose()
-      gl.uniformMatrix4fv(uniforms.NormalMatrix, false, this.matrices.normal.elements)
+        this.matrices.normal = new Matrix4
+        // Calculate the normal transformation matrix and pass it to u_NormalMatrix
+        this.matrices.normal.setInverseOf(newModelMatrix)
+        this.matrices.normal.transpose()
+        gl.uniformMatrix4fv(uniforms.NormalMatrix, false, this.matrices.normal.elements)
 
-      // Draw the prism
-      gl.drawElements(gl.TRIANGLES, this.buffers.indices.length, gl.UNSIGNED_BYTE, 0)
+        // Draw the prism
+        gl.drawElements(gl.TRIANGLES, this.buffers.indices.length, gl.UNSIGNED_BYTE, 0)
+      }
+      // draw all children
+      //this.children.forEach((child, i) => child.draw(newModelMatrix))
+      Object.keys(this.children).forEach((key) => this.children[key].draw(newModelMatrix))
+    } else {
     }
-    // draw all children
-    //this.children.forEach((child, i) => child.draw(newModelMatrix))
-    Object.keys(this.children).forEach((key) => this.children[key].draw(newModelMatrix))
   }
 }
 
@@ -213,7 +218,7 @@ function main() {
   // Retrieve <canvas> element
   canvas = document.getElementById('webgl')
   canvas.width = document.body.clientWidth
-  canvas.height = document.body.clientHeight
+  canvas.height = document.body.clientHeight * 0.9
 
   // Get the rendering context for WebGL
   gl = getWebGLContext(canvas)
@@ -261,73 +266,19 @@ function main() {
 
   gl.uniform1i(uniforms.isLighting, true) // Will apply lighting
 
-  
+
   document.onkeydown = function (ev) {
-    keysPressed.add(ev.key)
+    keysPressed.add(ev.code)
   }
 
   document.onkeyup = function (ev) {
-    keysPressed.delete(ev.key)
+    keysPressed.delete(ev.code)
   }
 
   root.children = defineObjects()
 
   requestAnimationFrame(render);
 }
-
-
-//set view matrix according to current position and camera angle
-function refreshView(deltaTime) {
-  const cameraTranslationSpeed = 1.2 // meters per second
-  const cameraRotationSpeed = 0.5 // degrees per second
-
-  if (keysPressed.has('ArrowUp')) {
-    g_vAngle = Math.min((g_vAngle + cameraRotationSpeed * deltaTime), Math.PI / 2)
-  }
-  if (keysPressed.has('ArrowDown')) {
-    g_vAngle = Math.max((g_vAngle - cameraRotationSpeed * deltaTime), -Math.PI / 2)
-  }
-  if (keysPressed.has('ArrowRight')) {
-    g_hAngle = (g_hAngle + cameraRotationSpeed * deltaTime)
-  }
-  if (keysPressed.has('ArrowLeft')) {
-    g_hAngle = (g_hAngle - cameraRotationSpeed * deltaTime)
-  }
-
-  const at = [Math.sin(g_hAngle), Math.sin(g_vAngle), -Math.cos(g_hAngle) * Math.cos(g_vAngle)]
-  
-  if (keysPressed.has('w')) {
-    glMatrix.vec3.add(g_Pos, g_Pos, at.map(e => e * cameraTranslationSpeed * deltaTime))
-  }
-  if (keysPressed.has('s')) {
-    glMatrix.vec3.sub(g_Pos, g_Pos, at.map(e => e * cameraTranslationSpeed * deltaTime))
-  }
-  if (keysPressed.has('a')) {
-    glMatrix.vec3.sub(g_Pos, g_Pos, [-at[2], at[1], at[0]].map(e => e * cameraTranslationSpeed * deltaTime))
-  }
-  if (keysPressed.has('d')) {
-    glMatrix.vec3.add(g_Pos, g_Pos, [-at[2], at[1], at[0]].map(e => e * cameraTranslationSpeed * deltaTime))
-  }
-
-  if (keysPressed.has('q')) {
-    glMatrix.vec3.add(g_Pos, g_Pos, [0, 1, 0].map(e => e * cameraTranslationSpeed * deltaTime))
-  }
-
-  if (keysPressed.has('e')) {
-    glMatrix.vec3.sub(g_Pos, g_Pos, [0, 1, 0].map(e => e * cameraTranslationSpeed * deltaTime))
-  }
-  
-  const eyePos = g_Pos
-  const eyeTargetRelative = [Math.sin(g_hAngle), Math.sin(g_vAngle), -Math.cos(g_hAngle) * Math.cos(g_vAngle)]
-  var eyeTargetAbsolute = []
-  glMatrix.vec3.add(eyeTargetAbsolute, eyePos, eyeTargetRelative)
-  const upVector = [0, 1, 0]
-  viewMatrix.setLookAt(...eyePos, ...eyeTargetAbsolute, ...upVector)
-  gl.uniformMatrix4fv(uniforms.ViewMatrix, false, viewMatrix.elements)
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-}
-
-
 
 
 // modulo function from https://stackoverflow.com/a/42131603
@@ -345,14 +296,14 @@ function initPrismVertexBuffers(sides = 4, color = [1, 0, 0], offset = false, fi
   // sides = 4
 
   const csIndices = [...Array(sides).keys()] // array of top vertex indices
-  
+
   const radius = !fitInCircle
     // closest points on perimeter are 0.5 meters from center
     ? Math.sqrt(2) * 0.5 // xz-distance magnitude from origin to vertex
     // furthest points on perimeter are 0.5 meters from center
     : 0.5
-    //closest points are side midpoints
-    //furthest points are vertices
+  //closest points are side midpoints
+  //furthest points are vertices
 
   const radAngles = csIndices.map(i => (i * (2 * Math.PI) / sides + !offset * Math.PI / sides)) // array of angles between current vertex/origin and first vertex/origin (radians)
   const dispX = radAngles.map(t => +Math.sin(t).toFixed(10)) // x displacement of each vertex calculated by angle

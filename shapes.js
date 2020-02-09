@@ -8,7 +8,7 @@ const g_Colors = {
   tvBorderColor: [0.3, 0.3, 0.3],
   cabinetMainColor: [0.75, 0.5, 0],
   cabinetHandleColor: [0.5, 0.5, 0.5],
-  reclinerColor: [0.7, 0.9, 0.7]
+  reclinerSeatColor: [0.6, 0.5, 0.7]
 }
 
 const g_Sides = 32
@@ -109,7 +109,7 @@ function createClock() {
   })
   clockHourHand.opts.origin = [0., 0, 0.5]
   clockHourHand.translate(0, 0.05, -0.5)  
-  clockHourHand.scale(0.04, 0.04, 0.5)
+  clockHourHand.scale(0.04, 0.04, 0.4)
   clockGroupArray.push(clockHourHand)
 
   var clockMinuteHand = new Node({
@@ -176,53 +176,53 @@ function createRecliner(args) {
   //reclinerGroupArray.push(reclinerSeatBase, reclinerArms)
 
   //var rightLeg = new Node({sides: 4, color: g_Colors.reclinerColor})
-  var rightArm = createHalfPrism({sides: g_Sides, name: 'reclinerRightArm'})
+  var rightArm = createHalfPrism({sides: g_Sides, name: 'reclinerRightArm', color: g_Colors.reclinerSeatColor})
   rightArm.rotate(-90, 1, 0, 0)
   rightArm.scale(0.125, 0.5, 0.05)
   rightArm.translate(-0.315, 0.8, 0)
   reclinerGroupArray.push(rightArm)
 
-  var rightLeg = new Node({name: 'reclinerRightLeg'})
+  var rightLeg = new Node({name: 'reclinerRightLeg', color: g_Colors.reclinerSeatColor})
   rightLeg.rotate(-90, 1, 0, 0)
   rightLeg.scale(0.125, 0.5, 0.8)
   rightLeg.translate(-0.315, 0.4, 0)
   reclinerGroupArray.push(rightLeg)
 
-  var leftArm = createHalfPrism({sides: g_Sides, name: 'reclinerLeftArm'})
+  var leftArm = createHalfPrism({sides: g_Sides, name: 'reclinerLeftArm', color: g_Colors.reclinerSeatColor})
   leftArm.rotate(-90, 1, 0, 0)
   leftArm.scale(0.125, 0.5, 0.05)
   leftArm.translate(0.315, 0.8, 0)
   reclinerGroupArray.push(leftArm)
 
-  var leftLeg = new Node({name: 'reclinerLeftLeg'})
+  var leftLeg = new Node({name: 'reclinerLeftLeg', color: g_Colors.reclinerSeatColor})
   leftLeg.rotate(-90, 1, 0, 0)
   leftLeg.scale(0.125, 0.5, 0.8)
   leftLeg.translate(0.315, 0.4, 0)
   reclinerGroupArray.push(leftLeg)
 
-  var seatBase = createHalfPrism({sides: g_Sides, color: g_Colors.chairSeatColor, name: 'reclinerSeatBase'})
-  seatBase.rotate(-90, 1, 0, 0)
-  seatBase.rotate(90, 0, 0, 1)
-  seatBase.scale(0.5, 0.5, 0.05)
-  seatBase.translate(0, 0.525, 0)
+  var reclinerSeatBase = createHalfPrism({sides: g_Sides, color: g_Colors.reclinerSeatColor, name: 'reclinerSeatBase'})
+  reclinerSeatBase.rotate(-90, 1, 0, 0)
+  //seatBase.rotate(90, 0, 0, 1)
+  reclinerSeatBase.scale(0.5, 0.5, 0.05)
+  reclinerSeatBase.translate(0, 0.525, 0)
 
-  var reclinerHead = createHalfPrism({sides: g_Sides, color: g_Colors.chairSeatColor, name: 'reclinerHead'})
-  
-  //reclinerHead.translate(0, 0.85, -0.2)
-  //reclinerHead.rotate(90, 0, 0, 1)
-  //reclinerHead.opts.origin = [-0.25, 0, 0]
+  var reclinerHead = createHalfPrism({sides: g_Sides, color: g_Colors.reclinerSeatColor, name: 'reclinerHead'})
   reclinerHead.scale(0.5, 0.5, 0.1)
-  reclinerHead.opts.origin = [-0.25, 0, 0]
-  reclinerHead.rotate(90, 0, 0, 1)
-  
-  
-  //reclinerHead.translate(0, 0.85, -0.2)
-  
-  //reclinerHead.translate(0, 0.75, -0.25)
+  reclinerHead.opts.origin = [0, -0.25, 0]
+  reclinerHead.scale(1, 1.5, 1)
+  reclinerHead.translate(0, 0.75, -0.25)
 
+  var reclinerFoot = createHalfPrism({sides: g_Sides, color: g_Colors.reclinerSeatColor, name: 'reclinerFoot'})
+  reclinerFoot.scale(0.5, 0.5, 0.05)
+  reclinerFoot.opts.origin = [0, 0.25, 0]  
+  reclinerFoot.translate(0, 0.25, 0.25)
+
+  var reclinerBack = new Node({color: g_Colors.reclinerSeatColor})
+  reclinerBack.scale(0.5, 0.5, 0.5)
+  reclinerBack.translate(0, 0.25, 0)
   
   
-  reclinerGroupArray.push(seatBase, reclinerHead)
+  reclinerGroupArray.push(reclinerSeatBase, reclinerHead, reclinerFoot, reclinerBack)
 
   reclinerNode = new Node({noModel: true, name: 'reclinerNode'})
   reclinerGroupArray.forEach((e, i) => {reclinerNode.children[e.opts.name] = e})
@@ -288,8 +288,9 @@ function createChair(args) {
   seatBase.translate(0, 0.525, 0)
 
   var seatBack = createHalfPrism({sides: sides, color: g_Colors.chairSeatColor})
-  seatBack.scale(0.5, 0.6, 0.1)
+  seatBack.scale(0.6, 0.5, 0.1)
   seatBack.translate(0, 0.85, -0.2)
+  seatBack.rotate(90, 0, 0, 1)
   
 
   var chairNode = new Node({noModel: true, name: name, children: {legs, seatBase, seatBack}})
@@ -372,7 +373,7 @@ function createHalfPrism(args) {
   var halfPrism = new Node({noModel: true, children: {half, prism}, name: opts.name})
   half.opts.origin = [0, 0, -0.5]
   half.scale(1, 1, 0.5)
-  prism.rotate(90, 0, 1, 0)
+  prism.rotate(90, 0, 0, 1)
   return halfPrism
   
 }
