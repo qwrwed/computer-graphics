@@ -56,6 +56,7 @@ var g_xPos = 0.0
 var g_yPos = 0.0
 var g_zPos = 4.0 // 4 metres behind origin 
 var g_Pos = [0, 1, 4]
+var g_Pos = [0, 0, 4]
 var POS_SPEED = 1.4 // meters per second
 
 
@@ -117,7 +118,7 @@ class Node {
     }
   }
 
-  // scale operation: take 1 or 3 arguments
+  // scale operation: takes 1 or 3 arguments
   scale(x, y, z) {
     if ((typeof (z) === 'undefined') && (typeof (y) === 'undefined')) {
       z = x
@@ -150,8 +151,9 @@ class Node {
   // absolute rotation
   setRotate(theta, x, y, z) {
     this.matrices.rotation.setRotate(0, x, y, z)
+    this.matrices.rotation.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
     this.rotate(theta, x, y, z)
-    //this.matrices.rotation.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])    
+    this.matrices.rotation.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
   }
 
   // Node.draw() function
