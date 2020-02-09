@@ -1,0 +1,301 @@
+
+const g_Colors = {
+  chairLegColor: [0.5, 0.5, 0.5],
+  chairSeatColor: [0.9, 0.9, 0.9],
+  tableLegColor: [0.5, 0.5, 0.5],
+  tableTopColor: [0.9, 0.9, 0.9]
+}
+
+const g_Sides = 32
+
+function createClock() {
+
+  var clockGroupArray = []
+  var clockNode = new Node({
+    noModel: true,
+    name: "clockNode"
+  })
+
+
+  var clockFaceBorder = new Node({
+    sides: g_Sides,
+    name: "clockFaceBorder",
+    color: [0.5,0.5,0.5]
+  })
+  clockFaceBorder.scale(1.1, 0.099, 1.1)
+  clockGroupArray.push(clockFaceBorder)
+
+  var clockBorderPart = createQuarterPrism({color: [0.5, 0.5, 0.5]})
+  clockBorderPart.scale(1, 0.2, 0.2)
+  clockBorderPart.rotate(180, 0, 1, 0)
+  var clockBorder = createBorder({model: clockBorderPart, n: 32, unitCircleIs: 'inside', lMult: 1})
+  clockGroupArray.push(clockBorder)
+
+  var clockFace = new Node({
+    sides: g_Sides,
+    name: "clockFace",
+    color: [1,1,1]
+  })
+  clockFace.scale(1, 0.1, 1)
+  clockGroupArray.push(clockFace)
+
+
+  var clockHourHand = new Node({
+    sides: 4,
+    color: [0.5,0.5,0.5],
+    name: "clockHourHand"
+  })
+  clockHourHand.opts.origin = [0., 0, 0.5]
+  clockHourHand.translate(0, 0.05, -0.5)  
+  clockHourHand.scale(0.04, 0.04, 0.5)
+  clockGroupArray.push(clockHourHand)
+
+  var clockMinuteHand = new Node({
+    sides: 4,
+    color: [0.5,0.5,0.5],
+    name: "clockMinuteHand"
+  })
+  clockMinuteHand.opts.origin = [0, 0, 0.5]
+  clockMinuteHand.translate(0, 0.05, -0.5)  
+  clockMinuteHand.scale(0.03, 0.03, 0.6)
+  clockGroupArray.push(clockMinuteHand)
+
+  var clockSecondHand = new Node({
+    sides: 4,
+    color: [1, 0, 0],
+    name: "clockSecondHand"
+  })
+  clockSecondHand.opts.origin = [0.0, 0, 0.5]
+  clockSecondHand.translate(0, 0.05, -0.5)  
+  clockSecondHand.scale(0.02, 0.02, 0.65)
+  clockGroupArray.push(clockSecondHand)
+  
+  clockGroupArray.forEach((e, i) => {clockNode.children[e.opts.name] = e})
+  clockNode.rotate(90, 1, 0, 0)
+
+  return clockNode
+}
+
+function createTable(args) {
+
+  // define defaults
+  const defaults = {
+    sides: g_Sides,
+    name: "table"
+  }
+
+  var {sides, name} = Object.assign({}, defaults, args);
+
+  var leg = new Node({sides: sides, color: g_Colors.tableLegColor, name: `${name}_tableLeg`, fitInCircle: true, offset: true})
+  leg.scale(0.05, 0.8, 0.05)
+  leg.translate(0, 0.4, 0)
+  const squareRadius = 2 ** -0.5 // distance from centre to corner of 1x1 square
+  var legs = createRadialRepetition(leg, { r: squareRadius * 1 - Math.sqrt(2 * 0.025 ** 2), n: 4, offset: true })
+
+  var tableTop = new Node({sides:sides, color: g_Colors.tableTopColor, name: `${name}_tableTop`, offset: true})
+  tableTop.scale(1.5, 0.05, 1.5)
+  tableTop.translate(0, 0.825, 0)
+
+
+  var tableNode = new Node({noModel: true, name: name, children: {legs, tableTop}})
+  return tableNode
+
+}
+
+function createTV(args) {
+
+  var borderEdge = createQuarterPrism({color: [0.3, 0.3, 0.3]})
+  borderEdge.scale(1, 0.01, 0.05)
+  borderEdge.rotate(180, 0, 1, 0)
+  var border = createBorder({model:borderEdge, n: 4, r: 0.5})
+  border.translate(0, 0.005, 0)
+  border.scale(1/1.05, 1, 1/1.05)
+  var back = createHalfPrism({sides: g_Sides, color: [0.3,0.3,0.3]})
+  back.scale(1, 1, 0.04)
+  back.rotate(90, 1, 0, 0)
+  back.translate(0, -0.02, 0)
+
+  const screen = new Node({color: [0, 0, 0]})
+  screen.scale(0.99, 0.001, 0.99)
+
+  stand = new Node ({sides: g_Sides, offset: true, color: [0.3, 0.3, 0.3]})
+  stand.scale(0.05, 1, 0.05)
+  stand.translate(0, -0.04, 0.05)
+  stand.rotate(90, 1, 0, 0)
+
+  base = new Node({sides: 6, color: [0.3, 0.3, 0.3]})
+  base.scale(0.3, 0.01, 0.2)
+  base.rotate(90, 1, 0, 0)
+  base.translate(0, -0.04, 0.55)
+  var tvNode = new Node ({noModel: true, children: {border, screen, back, stand, base}})
+  
+
+  tvNode.rotate(90, 1, 0, 0)
+  tvNode.scale(16/9, 1, 1)
+  tvNode.translate(0, 0.56, -0.04)
+
+  return tvNode
+
+}
+
+function createChair(args) {
+
+  // define defaults
+  const defaults = {
+    sides: g_Sides,
+    name: "chair"
+  }
+
+  var {sides, name} = Object.assign({}, defaults, args);
+
+  var leg = new Node({sides: sides, color: g_Colors.chairLegColor, name: "chairLeg", fitInCircle: true, offset: true})
+  leg.scale(0.05, 0.5, 0.05)
+  leg.translate(0, 0.25, 0)
+  const squareRadius = 2 ** -0.5 // distance from centre to corner of 1x1 square
+  var legs = createRadialRepetition(leg, { r: squareRadius * 0.5 - Math.sqrt(2 * 0.025 ** 2), n: 4, offset: false })
+
+  var seatBase = createQuarterPrism({sides: sides, color: g_Colors.chairSeatColor})
+  seatBase.scale(0.5, 0.05, 0.5)
+  seatBase.translate(0, 0.525, 0)
+
+  var seatBack = createHalfPrism({sides: sides, color: g_Colors.chairSeatColor})
+  seatBack.scale(0.5, 0.6, 0.1)
+  seatBack.translate(0, 0.85, -0.2)
+
+  var chairNode = new Node({noModel: true, name: name, children: {legs, seatBase, seatBack}})
+  return chairNode
+
+}
+
+function createBorder(args) {
+  const defaults = {
+    n: 4,
+    r: 0.5,
+    lMult: 0.0475,
+    model: createQuarterPrism(),
+    offset: true,
+    unitCircleIs: 'on'
+  }
+
+  const unitCircleDict = {inside: 1, on: Math.sqrt(2), outside: 2}
+  var opts = Object.assign({}, defaults, args);
+
+  var l = opts.r*Math.sqrt(2-2*Math.cos(2*Math.PI/opts.n)) //http://mathcentral.uregina.ca/QQ/database/QQ.09.06/s/dj1.html
+  l *= unitCircleDict[opts.unitCircleIs]
+  l *= (opts.lMult + 1)
+  opts.model.scale(l, 1, 1)
+  var border = createRadialRepetition(opts.model,{n: opts.n, r: opts.r, unitCircleIs: opts.unitCircleIs, offset: opts.offset})
+  return border
+}
+function createRadialRepetition(model, args) {
+  // define defaults
+  const defaults = {
+    n: 4,
+    r: 0.5,
+    offset: false,
+    axis: [0, 1, 0],
+    unitCircleIs: 'on'
+  }
+  var opts = Object.assign({}, defaults, args);
+  var radius
+
+  if (opts.unitCircleIs === 'on') {
+    // furthest points are r meters from center
+    // i.e. all origins are on the r-radius circle
+    radius = opts.r
+  } else if (opts.unitCircleIs === 'inside') {
+    // closest points are r metres from center
+    // i.e. midpoints between all origins are on the r-radius circle
+    radius = opts.r * Math.sqrt(2)
+  } else if (opts.unitCircleIs === 'outside') {
+    // tangent interception points are r metres from centre
+    // useful for e.g. borders; model origin is centre of border, interception points are border corners
+    // all border corners are on the r-radius circle
+    radius = opts.r / 2**(2**-(opts.n-3))
+  }
+
+  const angle = 360 / opts.n
+  model.translate(0, 0, radius)
+  var repeated = new Node({noModel: true, name: `${model.opts.name}_rep_${opts.n}`})
+  for (var i = 0; i < opts.n; i++) {
+    repeated.children[`${model.opts.name}_${i+1}`] = new Node({noModel: true, children: {model}, name: `${model.opts.name}_${i+1}`})
+    //repeated.children[`${model.opts.name}_${i+1}`].rotate(angle * (i-!opts.offset/2), 0, 1, 0)
+    repeated.children[`${model.opts.name}_${i+1}`].rotate(angle * (i+!opts.offset/2), opts.axis[0], opts.axis[1], opts.axis[2])
+  }
+  return repeated
+}
+
+// functions for composited primitives:
+function createHalfPrism(args) {
+
+  // define defaults
+  const defaults = {
+    sides: 4,
+    color: [0, 1, 0],
+    name: "Half Prism"
+  }
+
+  var opts = Object.assign({}, defaults, args);
+  var half = new Node({color: opts.color, name: `${opts.name}: half-cube`})
+  var prism = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism`})
+  //halfPrism = new Node({noModel: true, children: [half, prism]})
+  var halfPrism = new Node({noModel: true, children: {half, prism}})
+  half.opts.origin = [0, 0, -0.5]
+  half.scale(1, 1, 0.5)
+  prism.rotate(90, 0, 1, 0)
+  return halfPrism
+  
+}
+
+function createQuarterPrism(args) {
+
+  // define defaults
+  const defaults = {
+    sides: 4,
+    color: [0, 1, 0],
+    name: "Quarter Prism"
+  }
+
+  var opts = Object.assign({}, defaults, args);
+  var half = new Node({color: opts.color, name: `${opts.name}: half-cube`})
+  var quarter = new Node({color: opts.color, name: `${opts.name}: quarter-cube`})
+  var prism = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism`})
+  var quarterPrism = new Node({noModel: true, children: {half, prism, quarter}})
+
+  quarter.opts.origin = [0, 0.5, -0.5]
+  quarter.scale(1, 0.5, 0.5)
+  half.opts.origin = [0, -0.5, 0]
+  half.scale(1, 0.5, 1)
+  prism.rotate(90, 0, 0, 1)
+  return quarterPrism
+  
+}
+
+function createCornerPrism(args) {
+
+  // define defaults
+  const defaults = {
+    sides: 4,
+    color: [0, 1, 0],
+    name: "Corner Prism"
+  }
+
+  var opts = Object.assign({}, defaults, args);
+  var half = new Node({color: opts.color, name: `${opts.name}: half-cube`})
+  var quarter1 = new Node({color: opts.color, name: `${opts.name}: quarter-cube 1`})
+  var quarter2 = new Node({color: opts.color, name: `${opts.name}: quarter-cube 1`})
+  var prism1 = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism 1`})
+  var prism2 = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism 2`})
+  var cornerPrism = new Node({noModel: true, children: {quarter1, quarter2, half, prism1, prism2}})
+
+  half.opts.origin = [0, -0.5, 0]
+  half.scale(1, 0.5, 1)
+  quarter1.opts.origin = [0, 0.5, -0.5]
+  quarter1.scale(1, 0.5, 0.5)
+  quarter2.opts.origin = [-0.5, 0.5, 0]
+  quarter2.scale(0.5, 0.5, 1)
+  prism2.rotate(90, 0, 0, 1)
+
+  return cornerPrism
+  
+}
