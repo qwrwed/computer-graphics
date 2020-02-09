@@ -57,8 +57,9 @@ var POS_STEP = 0.1
 var g_xPos = 0.0
 var g_yPos = 0.0
 var g_zPos = 4.0 // 4 metres behind origin 
-var g_Pos = [0, 0, 4]
+var g_Pos = [0, 1, 4]
 
+const g_Sides = 32
 // global GL/canvas-related objects
 var canvas
 var gl
@@ -94,31 +95,36 @@ class Node {
       color: [0, 1, 0], // prism colour
       offset: false, // rotate prism about length by 1/2*sides rotations (e.g. rotate square 45 degrees, rotate triangle 60 degrees)
       fitInCircle: false, // true: contain top face within a 1-diameter circle. false: contain 1-diameter circle within top face
-      children: [], // child Nodes
       name: `Unnamed Node (${uid})`, // node name
       origin: [0,0,0] // scale/rotation origin
     }
 
     // define prism attributes by overwriting defaults with given args
     this.opts = Object.assign({}, defaults, args);
+    this.matrices = {}
+    if (typeof(args) === 'undefined') {
+      this.children = {}
+    } else {
+      this.children = Object.assign({}, {}, args.children)
+    }
 
     // assign options to instance data (using only property names contained
     // in defaults object to avoid copying properties we don't want)
-    Object.keys(defaults).forEach(prop => {
-      this[prop] = this.opts[prop];
-    });
+    //Object.keys(defaults).forEach(prop => {
+//      this[prop] = this.opts[prop];
+    //});
     
     // initialise model and normal matrices
-    this.modelMatrix = new Matrix4
-    this.normalMatrix = new Matrix4
+    this.matrices.model = new Matrix4
+    this.matrices.normal = new Matrix4
 
-    this.scaleMatrix = new Matrix4
-    this.rotationMatrix = new Matrix4
-    this.translationMatrix = new Matrix4
+    this.matrices.scale = new Matrix4
+    this.matrices.rotation = new Matrix4
+    this.matrices.translation = new Matrix4
 
     //if the model is to be drawn, initialise vertex buffers
     if (!this.opts.noModel) {
-      this.buffers = initPrismVertexBuffers(this.sides, this.color, this.offset, this.fitInCircle)
+      this.buffers = initPrismVertexBuffers(this.opts.sides, this.opts.color, this.opts.offset, this.opts.fitInCircle)
     }
   }
 
@@ -129,44 +135,44 @@ class Node {
       y = x
     }
     // scale from specified origin
-    this.modelMatrix.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
-    this.modelMatrix.scale(x, y, z)
-    this.modelMatrix.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
+    this.matrices.model.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
+    this.matrices.model.scale(x, y, z)
+    this.matrices.model.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
 
-    this.scaleMatrix.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
-    this.scaleMatrix.scale(x, y, z)
-    this.scaleMatrix.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
+    this.matrices.scale.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
+    this.matrices.scale.scale(x, y, z)
+    this.matrices.scale.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
   }
 
   // simple translate operation
   translate(x, y, z) {
-    this.modelMatrix.translate(x, y, z)
-    this.translationMatrix.translate(x, y, z)
+    this.matrices.model.translate(x, y, z)
+    this.matrices.translation.translate(x, y, z)
   }
 
     // simple translate operation
     setTranslate(x, y, z) {
-      this.modelMatrix.setTranslate(x, y, z)
-      this.translationMatrix.setTranslate(x, y, z)
+      this.matrices.model.setTranslate(x, y, z)
+      this.matrices.translation.setTranslate(x, y, z)
     }
 
   // rotate operation
   rotate(theta, x, y, z) {
     // rotate about specified origin
-    this.modelMatrix.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
-    this.modelMatrix.rotate(theta, x, y, z)
-    this.modelMatrix.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
+    this.matrices.model.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
+    this.matrices.model.rotate(theta, x, y, z)
+    this.matrices.model.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
 
-    this.rotationMatrix.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
-    this.rotationMatrix.rotate(theta, x, y, z)
-    this.rotationMatrix.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
+    this.matrices.rotation.translate(this.opts.origin[0], this.opts.origin[1], this.opts.origin[2])
+    this.matrices.rotation.rotate(theta, x, y, z)
+    this.matrices.rotation.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])
   }
 
   // rotate operation
   setRotate(theta, x, y, z) {
-    this.rotationMatrix.setRotate(0, x, y, z)
+    this.matrices.rotation.setRotate(0, x, y, z)
     this.rotate(theta, x, y, z)
-    //this.rotationMatrix.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])    
+    //this.matrices.rotation.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])    
   }
 
   // Node.draw() function
@@ -175,25 +181,25 @@ class Node {
     //console.log(this.uid)
     //console.log(this.name)
     
-    this.modelMatrix = new Matrix4
+    this.matrices.model = new Matrix4
     /*
-    glMatrix.mat4.multiply(this.modelMatrix.elements, (new Matrix4).elements, this.scaleMatrix.elements )
-    glMatrix.mat4.multiply(this.modelMatrix.elements, this.modelMatrix.elements, this.rotationMatrix.elements )
-    glMatrix.mat4.multiply(this.modelMatrix.elements, this.modelMatrix.elements, this.translationMatrix.elements )
+    glMatrix.mat4.multiply(this.matrices.model.elements, (new Matrix4).elements, this.matrices.scale.elements )
+    glMatrix.mat4.multiply(this.matrices.model.elements, this.matrices.model.elements, this.matrices.rotation.elements )
+    glMatrix.mat4.multiply(this.matrices.model.elements, this.matrices.model.elements, this.matrices.translation.elements )
     */
 
    
    
-   glMatrix.mat4.multiply(this.modelMatrix.elements, (new Matrix4).elements, this.translationMatrix.elements )
-   glMatrix.mat4.multiply(this.modelMatrix.elements, this.modelMatrix.elements, this.rotationMatrix.elements )
-   glMatrix.mat4.multiply(this.modelMatrix.elements, this.modelMatrix.elements, this.scaleMatrix.elements )
+   glMatrix.mat4.multiply(this.matrices.model.elements, (new Matrix4).elements, this.matrices.translation.elements )
+   glMatrix.mat4.multiply(this.matrices.model.elements, this.matrices.model.elements, this.matrices.rotation.elements )
+   glMatrix.mat4.multiply(this.matrices.model.elements, this.matrices.model.elements, this.matrices.scale.elements )
 
     // multiply model matrix by parent's model matrix to propagate transformations down the scene graph
     if (typeof (parentModelMatrix) === 'undefined') {
       parentModelMatrix = new Matrix4 // identity matrix
     }
     var newModelMatrix = new Matrix4
-    glMatrix.mat4.multiply(newModelMatrix.elements, parentModelMatrix.elements, this.modelMatrix.elements)
+    glMatrix.mat4.multiply(newModelMatrix.elements, parentModelMatrix.elements, this.matrices.model.elements)
 
     // only draw self if needed    
     if (!this.opts.noModel) {
@@ -210,16 +216,16 @@ class Node {
       gl.uniformMatrix4fv(uniforms.ModelMatrix, false, newModelMatrix.elements)
 
       // Calculate the normal transformation matrix and pass it to u_NormalMatrix
-      this.normalMatrix.setInverseOf(newModelMatrix)
-      this.normalMatrix.transpose()
-      gl.uniformMatrix4fv(uniforms.NormalMatrix, false, this.normalMatrix.elements)
+      this.matrices.normal.setInverseOf(newModelMatrix)
+      this.matrices.normal.transpose()
+      gl.uniformMatrix4fv(uniforms.NormalMatrix, false, this.matrices.normal.elements)
 
       // Draw the prism
       gl.drawElements(gl.TRIANGLES, this.buffers.indices.length, gl.UNSIGNED_BYTE, 0)
     }
     // draw all children
-    //this.opts.children.forEach((child, i) => child.draw(newModelMatrix))
-    Object.keys(this.opts.children).forEach((key) => this.opts.children[key].draw(newModelMatrix))
+    //this.children.forEach((child, i) => child.draw(newModelMatrix))
+    Object.keys(this.children).forEach((key) => this.children[key].draw(newModelMatrix))
   }
 }
 
@@ -355,7 +361,7 @@ function createClock() {
 
 
   var clockFaceBorder = new Node({
-    sides: 32,
+    sides: g_Sides,
     name: "clockFaceBorder",
     color: [0.5,0.5,0.5]
   })
@@ -363,7 +369,7 @@ function createClock() {
   clockGroupArray.push(clockFaceBorder)
 
   var clockFace = new Node({
-    sides: 32,
+    sides: g_Sides,
     name: "clockFace",
     color: [1,1,1]
   })
@@ -431,16 +437,124 @@ function defineObjects() {
   
   var clockNode = createClock()
   
-  objectsArray.push(clockNode)
+  //objectsArray.push(clockNode)
+
   
+  //modelMatrix.rotate(!offset * angle / 2, 0, 1, 0)
+  //modelMatrix.translate(0, 0, r)
+  //for (var i = 0; i < n; i++) {
+//    modelMatrix.translate(0, 0, -r)
+    //modelMatrix.rotate(angle, 0, 1, 0)
+    //modelMatrix.translate(0, 0, r)
+    //fn(modelMatrix)
+  //}
+
+  
+  
+  var chairNode = createChair()
+  chairNode.rotate(180, 0, 1, 0)
+  var chairsNode = repeatRadial(chairNode, {r:1})
+  var tableNode = createTable()
+  var tablesAndChairsNode = new Node({noModel: true, children: {tableNode, chairsNode}})
+  var floor = new Node({color: [0.5, 0.5, 0.7]})
+  //origin.scale(1, 0.1, 1)
+  floor.scale(10, 0.001, 10)
+  //origin.translate(0, -0.25, 0)
+  //objectsArray.push(...legs)
+  clockNode.translate(0, 1.5, 0)
+  clockNode.scale(0.5)
+  objectsArray.push(floor, tablesAndChairsNode, clockNode)
+  //objectsArray.push(origin)
   var objects = {}
   objectsArray.forEach((e, i) => {objects[e.opts.name] = e})
   //console.log(objects)
   return objects
 }
 
-//handle keypress
 
+function createTable(args) {
+
+  // define defaults
+  const defaults = {
+    sides: g_Sides,
+    name: "table"
+  }
+
+  var {sides, name} = Object.assign({}, defaults, args);
+
+  var leg = new Node({sides: sides, color: g_Colors.tableLegColor, name: `${name}_tableLeg`, fitInCircle: true, offset: true})
+  leg.scale(0.05, 0.8, 0.05)
+  leg.translate(0, 0.4, 0)
+  const squareRadius = 2 ** -0.5 // distance from centre to corner of 1x1 square
+  var legs = repeatRadial(leg, { r: squareRadius * 1 - Math.sqrt(2 * 0.025 ** 2), n: 4, offset: true })
+
+  var tableTop = new Node({sides:sides, color: g_Colors.tableTopColor, name: `${name}_tableTop`, offset: true})
+  tableTop.scale(1.5, 0.05, 1.5)
+  tableTop.translate(0, 0.825, 0)
+
+
+  var tableNode = new Node({noModel: true, name: name, children: {legs, tableTop}})
+  return tableNode
+
+}
+
+function createChair(args) {
+
+  // define defaults
+  const defaults = {
+    sides: g_Sides,
+    name: "chair"
+  }
+
+  var {sides, name} = Object.assign({}, defaults, args);
+
+  var leg = new Node({sides: sides, color: g_Colors.chairLegColor, name: "chairLeg", fitInCircle: true, offset: true})
+  leg.scale(0.05, 0.5, 0.05)
+  leg.translate(0, 0.25, 0)
+  const squareRadius = 2 ** -0.5 // distance from centre to corner of 1x1 square
+  var legs = repeatRadial(leg, { r: squareRadius * 0.5 - Math.sqrt(2 * 0.025 ** 2), n: 4, offset: false })
+
+  var seatBase = createQuarterPrism({sides: sides, color: g_Colors.chairSeatColor})
+  seatBase.scale(0.5, 0.05, 0.5)
+  seatBase.translate(0, 0.525, 0)
+
+  var seatBack = createHalfPrism({sides: sides, color: g_Colors.chairSeatColor})
+  seatBack.scale(0.5, 0.6, 0.1)
+  seatBack.translate(0, 0.85, -0.2)
+
+  var chairNode = new Node({noModel: true, name: name, children: {legs, seatBase, seatBack}})
+  return chairNode
+
+}
+
+function repeatRadial(model, args) {
+  // define defaults
+  const defaults = {
+    n: 4,
+    r: 0.5,
+    offset: false, 
+  }
+  var opts = Object.assign({}, defaults, args);
+
+  const angle = 360 / opts.n
+  model.translate(0, 0, opts.r)
+  var repeated = new Node({noModel: true, name: `${model.opts.name}_rep_${opts.n}`})
+  for (var i = 0; i < opts.n; i++) {
+    repeated.children[`${model.opts.name}_${i+1}`] = new Node({noModel: true, children: {model}, name: `${model.opts.name}_${i+1}`})
+    //repeated.children[`${model.opts.name}_${i+1}`].rotate(angle * (i-!opts.offset/2), 0, 1, 0)
+    repeated.children[`${model.opts.name}_${i+1}`].rotate(angle * (i+!opts.offset/2), 0, 1, 0)
+  }
+  return repeated
+}
+
+const g_Colors = {
+  chairLegColor: [0.5, 0.5, 0.5],
+  chairSeatColor: [0.9, 0.9, 0.9],
+  tableLegColor: [0.5, 0.5, 0.5],
+  tableTopColor: [0.9, 0.9, 0.9]
+}
+
+  //handle keypress
 function keydown(ev) {
   //console.log(ev.keyCode)
   const at = [Math.sin(g_hAngle), Math.sin(g_vAngle), -Math.cos(g_hAngle) * Math.cos(g_vAngle)]
@@ -479,9 +593,11 @@ function keydown(ev) {
       break
     case 81: // Q -> go up
       g_yPos = (g_yPos + POS_STEP)
+      glMatrix.vec3.add(g_Pos, g_Pos, [0, 1, 0].map(e=>e*POS_STEP))
       break
     case 69: // E -> go down
       g_yPos = (g_yPos - POS_STEP)
+      glMatrix.vec3.sub(g_Pos, g_Pos, [0, 1, 0].map(e=>e*POS_STEP))
       break
     default: return // Skip drawing at no effective action
   }
@@ -600,9 +716,9 @@ function createHalfPrism(args) {
   prism = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism`})
   //halfPrism = new Node({noModel: true, children: [half, prism]})
   halfPrism = new Node({noModel: true, children: {half, prism}})
-  half.opts.origin = [0, -0.5, 0]
-  half.scale(1, 0.5, 1)
-  prism.rotate(90, 0, 0, 1)
+  half.opts.origin = [0, 0, -0.5]
+  half.scale(1, 1, 0.5)
+  prism.rotate(90, 0, 1, 0)
   return halfPrism
   
 }
