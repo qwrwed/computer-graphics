@@ -13,13 +13,16 @@ var VSHADER_SOURCE = `
   uniform vec3 u_LightColor; // Light color
   uniform vec3 u_LightPosition;
   uniform vec3 u_AmbientLightColor;
+  attribute vec2 a_TexCoords;
   varying vec4 v_Color;
   varying vec3 v_Normal;
   varying vec3 v_Position;
+  varying vec2 v_TexCoords;
   uniform bool u_isLighting;
   void main() {
     gl_Position = u_ProjMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
     gl_PointSize = 10.0;
+    v_TexCoords = a_TexCoords;
     if(u_isLighting)
     {
        v_Position = vec3(u_ModelMatrix * a_Position); // vertex position in world coordinates
@@ -30,7 +33,7 @@ var VSHADER_SOURCE = `
   }
 `
 // Fragment shader program
-var FSHADER_SOURCE =`
+var FSHADER_SOURCE = `
   precision mediump float;
   varying vec4 v_Color;
   varying vec3 v_Normal;
@@ -38,15 +41,25 @@ var FSHADER_SOURCE =`
   uniform vec3 u_LightPosition;
   uniform vec3 u_LightColor;
   uniform vec3 u_AmbientLightColor;
+  varying vec2 v_TexCoords;
+  uniform sampler2D u_Sampler;
+  uniform bool u_UseTextures;
 
   void main() {
     vec3 normal = normalize(v_Normal);
     vec3 lightDirection = normalize(u_LightPosition - v_Position);
     float nDotL = max(dot(lightDirection, normal), 0.0);
-    vec3 diffuse = u_LightColor * v_Color.rgb * nDotL;
+    vec3 diffuse;
+    if (u_UseTextures) {
+      vec4 TexColor = texture2D(u_Sampler, v_TexCoords);
+      //diffuse = u_LightColor * TexColor.rgb * nDotL * 1.2;
+      diffuse = u_LightColor * TexColor.rgb * 1.2;
+    } else {
+      diffuse = u_LightColor * v_Color.rgb * nDotL;
+    }
     vec3 ambient = u_AmbientLightColor * v_Color.rgb;
     gl_FragColor = vec4(diffuse + ambient, v_Color.a);
-  //  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+    //gl_FragColor = vec4(diffuse, v_Color.a);
   }
   `
 
@@ -56,9 +69,12 @@ var projMatrix = new Matrix4() // The projection matrix
 var g_normalMatrix = new Matrix4() // Coordinate transformation matrix for normals
 
 const cameraDefaults = {
-  g_hAngle: glMatrix.glMatrix.toRadian(75.0),
+  //g_hAngle: glMatrix.glMatrix.toRadian(75.0),
+  //g_vAngle: glMatrix.glMatrix.toRadian(-10.0),
+  //g_Pos: [-5, 1.5, 1]
+  g_Pos: [0, 1.5, 4],
+  g_hAngle: glMatrix.glMatrix.toRadian(0.0),
   g_vAngle: glMatrix.glMatrix.toRadian(-10.0),
-  g_Pos: [-5, 1.5, 1]
 }
 
 // camera angle
@@ -109,6 +125,8 @@ class Node {
       name: `Unnamed Node (${uid})`, // node name
       origin: [0, 0, 0], // scale/rotation origin
       hidden: false,
+      textureMode: 'none',
+      image: undefined
     }
 
     // define prism attributes by overwriting defaults with given args
@@ -170,6 +188,46 @@ class Node {
 
   // Node.draw() function
   draw(parentModelMatrix) {
+    if ((typeof(this.opts.image) !== 'undefined') && ((new Set(['stretch', 'repeat'])).has(this.opts.textureMode))){
+      gl.uniform1i(uniforms.UseTextures, true) // Will apply textures
+      if (!initArrayBuffer('a_TexCoords', this.buffers.texCoords, 2, gl.FLOAT)) return -1;
+      
+      var Cubetexture = gl.createTexture();   // Create a texture object
+      Cubetexture.image = new Image();  // Create the image object
+      // Tell the browser to load an image
+      // Register the event handler to be called on loading an image
+      Cubetexture.image.src = this.opts.image;
+      Cubetexture.image.onload = function () {
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
+
+        // Enable texture unit0
+        gl.activeTexture(gl.TEXTURE0);
+      
+        // Bind the texture object to the target
+        gl.bindTexture(gl.TEXTURE_2D, Cubetexture);
+      
+        // Set the texture image
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, Cubetexture.image);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      
+        // Assign u_Sampler to TEXTURE0
+        gl.uniform1i(uniforms.Sampler, 0);
+
+        gl.uniform1i(uniforms.UseTextures, true)
+        
+      };
+      this.drawRender(parentModelMatrix)
+      
+    } else {
+      gl.uniform1i(uniforms.UseTextures, false)
+      this.drawRender(parentModelMatrix)
+    }
+    
+
+  }
+  drawRender(parentModelMatrix) {
     this.matrices.model = new Matrix4
     glMatrix.mat4.multiply(this.matrices.model.elements, (new Matrix4).elements, this.matrices.translation.elements)
     glMatrix.mat4.multiply(this.matrices.model.elements, this.matrices.model.elements, this.matrices.rotation.elements)
@@ -191,6 +249,8 @@ class Node {
         if (!initArrayBuffer('a_Color', this.buffers.colors, 3, gl.FLOAT)) return -1
         if (!initArrayBuffer('a_Normal', this.buffers.normals, 3, gl.FLOAT)) return -1
 
+        
+
         // Write the indices to the buffer object
         var indexBuffer = gl.createBuffer()
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
@@ -209,9 +269,33 @@ class Node {
       // draw all children
       //this.children.forEach((child, i) => child.draw(newModelMatrix))
       Object.keys(this.children).forEach((key) => this.children[key].draw(newModelMatrix))
-    } else {
     }
   }
+}
+
+function loadTexAndDraw(gl, n, texture, u_Sampler, u_UseTextures) {
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
+
+  // Enable texture unit0
+  gl.activeTexture(gl.TEXTURE0);
+
+  // Bind the texture object to the target
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  // Set the texture image
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, texture.image);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  // Assign u_Sampler to TEXTURE0
+  gl.uniform1i(u_Sampler, 0);
+
+  // Enable texture mapping
+  //gl.uniform1i(u_UseTextures, true);
+
+  // Draw the textured cube
+  //gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
 }
 
 // scene root: cannot have transformations or model data
@@ -237,33 +321,28 @@ function main() {
   initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)
 
   // Set clear color and enable hidden surface removal
-  //gl.clearColor(0.9, 0.9, 0.9, 1.0)
-  gl.clearColor(0, 0, 0, 1.0)
+  gl.clearColor(0.9, 0.9, 0.9, 1.0)
+  //gl.clearColor(0, 0, 0, 1.0)
   gl.enable(gl.DEPTH_TEST)
 
   // Clear color and depth buffer
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
   // Get the storage locations of uniform attributes
-  /*const uniformNames = [
-    ModelMatrix,
-    ViewMatrix,
-    NormalMatrix,
-    ProjMatrix,
-    LightColor,
-    LightDirection,
-    isLighting,
-  ]*/
-  uniforms.ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix')
-  uniforms.ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix')
-  uniforms.NormalMatrix = gl.getUniformLocation(gl.program, 'u_NormalMatrix')
-  uniforms.ProjMatrix = gl.getUniformLocation(gl.program, 'u_ProjMatrix')
-  uniforms.LightColor = gl.getUniformLocation(gl.program, 'u_LightColor')
-  //uniforms.LightDirection = gl.getUniformLocation(gl.program, 'u_LightDirection')
-  uniforms.LightPosition = gl.getUniformLocation(gl.program, 'u_LightPosition')
-  uniforms.isLighting = gl.getUniformLocation(gl.program, 'u_isLighting')
+  const uniformNames = [
+    'ModelMatrix',
+    'ViewMatrix',
+    'NormalMatrix',
+    'ProjMatrix',
+    'LightColor',
+    'LightPosition',
+    'isLighting',
+    'AmbientLightColor',
+    'UseTextures',
+    'Sampler'
+  ]
 
-  uniforms.AmbientLightColor = gl.getUniformLocation(gl.program, 'u_AmbientLightColor')
+  uniformNames.forEach(name => { uniforms[name] = gl.getUniformLocation(gl.program, `u_${name}`) })
 
   // Set the light color (white)
   gl.uniform3f(uniforms.LightColor, 1.0, 1.0, 1.0)
@@ -312,7 +391,7 @@ function add3Vectors(a, b, c) {
 }
 
 // create vertex buffers for prism
-function initPrismVertexBuffers(sides = 4, color = [1, 0, 0], offset = false, fitInCircle = false) {
+function initPrismVertexBuffers(sides = 4, color = [1, 0, 0], offset = false, fitInCircle = false, textureMode = 'repeat') {
   // sides = 4
 
   const csIndices = [...Array(sides).keys()] // array of top vertex indices
@@ -325,16 +404,35 @@ function initPrismVertexBuffers(sides = 4, color = [1, 0, 0], offset = false, fi
   //closest points are side midpoints
   //furthest points are vertices
 
+  const texRadius = radius / (Math.sqrt(2) ** !fitInCircle)
+
   const radAngles = csIndices.map(i => (i * (2 * Math.PI) / sides + !offset * Math.PI / sides)) // array of angles between current vertex/origin and first vertex/origin (radians)
   const dispX = radAngles.map(t => +Math.sin(t).toFixed(10)) // x displacement of each vertex calculated by angle
   const dispZ = radAngles.map(t => +Math.cos(t).toFixed(10)) // z displacement of each vertex calculated by angle
   const dispYAbs = 0.5 // y-distance magnitude from origin to top and bottom vertices/faces
 
+
+
+  const texRadAngles = mod(sides, 2) ?
+    csIndices.map(i => ((i) * (2 * Math.PI) / sides + offset * Math.PI / sides)) :
+    csIndices.map(i => ((i - 1 + offset) * (2 * Math.PI) / sides + !offset * Math.PI / sides))
+
+  const texDispU = texRadAngles.map(t => +Math.sin(t).toFixed(10))
+  const texDispV = texRadAngles.map(t => +Math.cos(t).toFixed(10))
+
   const vTop = csIndices.map(i => [radius * dispX[i % sides], dispYAbs, radius * dispZ[i % sides]]) // array of vertex coordinates (2D: [[x,y,z], [x,y,z], ...])
   const nTop = vTop.map((e, i) => [0, 1, 0])
+  const tTop = csIndices.map(i => [texRadius * texDispU[i % sides], texRadius * texDispV[i % sides]].map(e => e + 0.5)).reverse()
+  for (var i = 1; i < sides / 2; i++) {
+    tTop.push(tTop.shift())
+  }
 
   const vBottom = csIndices.map(i => [radius * dispX[i % sides], -dispYAbs, radius * dispZ[i % sides]]) // array of vertex coordinates (2D: [[x,y,z], [x,y,z], ...])
   const nBottom = vBottom.map((e, i) => [0, -1, 0])
+  const tBottom = csIndices.map(i => [texRadius * texDispU[i % sides], texRadius * texDispV[i % sides]].map(e => e + 0.5)).reverse()
+  for (var i = 1; i < sides / 2; i++) {
+    tBottom.push(tBottom.shift())
+  }
 
   eTop = csIndices.map(i => [i, mod(i + 1, sides)]) // top edges
   eBottom = csIndices.map(i => [i + sides, mod(i + 1, sides) + sides]) // bottom edges
@@ -344,11 +442,23 @@ function initPrismVertexBuffers(sides = 4, color = [1, 0, 0], offset = false, fi
   vSides = eSides.flat().map((e, i) => vTopBottom[e])
   nSides = csIndices.map((e, i) => Array(4).fill(add3Vectors([dispX[i], 0, dispZ[i]], [0, 0, 0], [dispX[mod(i + 1, sides)], 0, dispZ[mod(i + 1, sides)]])))
 
+  var tSides
+  if (textureMode === 'repeat') {
+    tSides = csIndices.map(() => [[0, 1], [1, 1], [0, 0], [1, 0]])
+  } else if (textureMode === 'stretch') {
+    tSides = csIndices.map((e) => [[e / sides, 1], [(e + 1) / sides, 1], [e / sides, 0], [(e + 1) / sides, 0]])
+    tSides.push(tSides.shift())
+  }
+
+
+
   v = [vTop, vBottom, vSides]
   n = [nTop, nBottom, nSides]
+  t = [tTop, tTop, tSides]
 
   var vertices = new Float32Array(v.flat(Infinity)) // vertex coordinates in WebGL-compatible format
   var normals = new Float32Array(n.flat(Infinity))
+  var texCoords = new Float32Array(t.flat(Infinity))
 
   colorsJS = []
   colorsJS.push(v.flat().map(i => color))
@@ -377,7 +487,7 @@ function initPrismVertexBuffers(sides = 4, color = [1, 0, 0], offset = false, fi
     indicesJS.flat(Infinity)
   )
 
-  return { indices, vertices, colors, normals }
+  return { indices, vertices, colors, normals, texCoords }
 }
 
 // create array buffer for prism
@@ -393,3 +503,5 @@ function initArrayBuffer(attribute, data, num, type, stride = 0, offset = 0) {
 
   return true
 }
+
+

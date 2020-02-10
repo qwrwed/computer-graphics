@@ -16,7 +16,7 @@ function defineObjects() {
   //objectsArray.push(tvNode)
   var tvAndCabinetNode = new Node({ noModel: true, children: { cabinetNode, tvNode }, name: 'tvAndCabinetNode' })
   tvAndCabinetNode.translate(-1, 0, -1)
-  objectsArray.push(tvAndCabinetNode)
+  //objectsArray.push(tvAndCabinetNode)
 
   //clock
   var clockNode = createClock()
@@ -32,7 +32,7 @@ function defineObjects() {
   var chairsNode = createRadialRepetition(chairNode, { n: 4, r: 1 })
   var tableNode = createTable()
   var tablesAndChairsNode = new Node({ noModel: true, children: { tableNode, chairsNode }, name: 'tablesAndChairsNode' })
-  objectsArray.push(tablesAndChairsNode)
+  //objectsArray.push(tablesAndChairsNode)
   tablesAndChairsNode.translate(1, 0, 0)
 
   //recliner
@@ -44,26 +44,29 @@ function defineObjects() {
   var reclinersNode = new Node({ noModel: true, children: { reclinerNode1, reclinerNode2 }, name: 'reclinersNode' })
   reclinersNode.translate(-1, 0, 1)
   reclinersNode.rotate(180, 0, 1, 0)
-  objectsArray.push(reclinersNode)
+  //objectsArray.push(reclinersNode)
 
 
   //floor
   var floor = new Node({ color: [0.5, 0.5, 0.7] })
   floor.scale(4, 0.001, 4)
-  objectsArray.push(floor)
+  //objectsArray.push(floor)
 
   //ceiling
   var ceiling = new Node({ color: [0.5, 0.5, 0.7] })
   ceiling.translate(0,4,0)
   ceiling.scale(4, 0.001, 4)
-  objectsArray.push(ceiling)
+  //objectsArray.push(ceiling)
 
-  var wall = new Node({ color: [0.5, 0.5, 0.68] })
+  var wall = new Node({ color: [0.5, 0.5, 0.68], textureMode: 'repeat', image:'./resources/parasol.jpg' })
   wall.translate(2,2,0)
   wall.scale(0.001, 4, 4)
   walls = createRadialRepetition(wall, {n:4, r:0, offset: true, m:3})
   walls.rotate(-90, 0, 1, 0)
   objectsArray.push(walls)
+
+  var testCube = new Node({color: [1,1,1], offset: false, sides: 5, fitInCircle: false, textureMode: 'repat', image:'./resources/circle.gif'})
+  objectsArray.push(testCube)
 
   var objects = {}
   objectsArray.forEach((e, i) => { objects[e.opts.name] = e })
