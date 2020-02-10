@@ -1,44 +1,47 @@
 
 // Code massively adapted from "Directional lighting demo: By Frederick Li"
 // Vertex shader program
-var VSHADER_SOURCE =
-  'attribute vec4 a_Position;\n' +
-  'attribute vec4 a_Color;\n' +
-  'attribute vec4 a_Normal;\n' + // Normal
-  'uniform mat4 u_ModelMatrix;\n' +
-  'uniform mat4 u_NormalMatrix;\n' +
-  'uniform mat4 u_ViewMatrix;\n' +
-  'uniform mat4 u_ProjMatrix;\n' +
-  'uniform vec3 u_LightColor;\n' + // Light color
-  'uniform vec3 u_LightDirection;\n' + // Light direction (in the world coordinate, normalized)
-  'varying vec4 v_Color;\n' +
-  'uniform bool u_isLighting;\n' +
-  'void main() {\n' +
-  '  gl_Position = u_ProjMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;\n' +
-  '  gl_PointSize = 10.0;\n' +
-  '  if(u_isLighting)\n' +
-  '  {\n' +
-  '     vec3 normal = normalize((u_NormalMatrix * a_Normal).xyz);\n' +
-  '     float nDotL = max(dot(normal, u_LightDirection), 0.0);\n' +
+var VSHADER_SOURCE = `
+  attribute vec4 a_Position;
+  attribute vec4 a_Color;
+  attribute vec4 a_Normal; // Normal
+  uniform mat4 u_ModelMatrix;
+  uniform mat4 u_NormalMatrix;
+  uniform mat4 u_ViewMatrix;
+  uniform mat4 u_ProjMatrix;
+  uniform vec3 u_LightColor; // Light color
+  uniform vec3 u_LightDirection; // Light direction (in the world coordinate, normalized)
+  uniform vec3 u_AmbientLightColor;
+  varying vec4 v_Color;
+  uniform bool u_isLighting;
+  void main() {
+    gl_Position = u_ProjMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
+    gl_PointSize = 10.0;
+    if(u_isLighting)
+    {
+       vec3 normal = normalize((u_NormalMatrix * a_Normal).xyz);
+       float nDotL = max(dot(normal, u_LightDirection), 0.0);
   // Calculate the color due to diffuse reflection
-  '     vec3 diffuse = u_LightColor * a_Color.rgb * nDotL;\n' +
-  '     v_Color = vec4(diffuse, a_Color.a);\n' + '  }\n' +
-  '  else\n' +
-  '  {\n' +
-  '     v_Color = a_Color;\n' +
-  '  }\n' +
-  '}\n'
-
+       vec3 diffuse = u_LightColor * a_Color.rgb * nDotL;
+       vec3 ambient = u_AmbientLightColor * a_Color.rgb;
+       v_Color = vec4(diffuse + ambient, a_Color.a);   }
+    else
+    {
+       v_Color = a_Color;
+    }
+  }
+`
 // Fragment shader program
-var FSHADER_SOURCE =
-  '#ifdef GL_ES\n' +
-  'precision mediump float;\n' +
-  '#endif\n' +
-  'varying vec4 v_Color;\n' +
-  'void main() {\n' +
-  '  gl_FragColor = v_Color;\n' +
-  // '  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n' +
-  '}\n'
+var FSHADER_SOURCE =`
+  #ifdef GL_ES
+  precision mediump float;
+  #endif
+  varying vec4 v_Color;
+  void main() {
+    gl_FragColor = v_Color;
+  //   gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+  }
+  `
 
 var modelMatrix = new Matrix4() // The model matrix
 var viewMatrix = new Matrix4() // The view matrix
@@ -251,12 +254,16 @@ function main() {
   uniforms.LightDirection = gl.getUniformLocation(gl.program, 'u_LightDirection')
   uniforms.isLighting = gl.getUniformLocation(gl.program, 'u_isLighting')
 
+  uniforms.AmbientLightColor = gl.getUniformLocation(gl.program, 'u_AmbientLightColor')
+
   // Set the light color (white)
   gl.uniform3f(uniforms.LightColor, 1.0, 1.0, 1.0)
   // Set the light direction (in the world coordinate)
   var lightDirection = new Vector3([0.5, 3.0, 4.0])
   lightDirection.normalize() // Normalize
   gl.uniform3fv(uniforms.LightDirection, lightDirection.elements)
+  //set the ambient light color
+  gl.uniform3f(uniforms.AmbientLightColor, 0.3, 0.3, 0.3);
 
   // calculate the view matrix and pass to uniform variable, and clear the canvas
   //refreshView()

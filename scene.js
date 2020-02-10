@@ -52,10 +52,17 @@ function defineObjects() {
   floor.scale(10, 0.001, 10)
   objectsArray.push(floor)
 
+  //ceiling
+  var ceiling = new Node({ color: [0.5, 0.5, 0.7] })
+  ceiling.translate(0,3,0)
+  ceiling.scale(10, 0.001, 10)
+  objectsArray.push(ceiling)
+
   var wall = new Node({ color: [0.5, 0.5, 0.7] })
   wall.scale(10, 3, 0.001)
   wall.translate(0, 1.5, -5)
-  objectsArray.push(wall)
+  walls = createRadialRepetition(wall, {n:4, r:0, offset: true})
+  objectsArray.push(walls)
 
   var objects = {}
   objectsArray.forEach((e, i) => { objects[e.opts.name] = e })
