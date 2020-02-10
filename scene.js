@@ -49,19 +49,20 @@ function defineObjects() {
 
   //floor
   var floor = new Node({ color: [0.5, 0.5, 0.7] })
-  floor.scale(10, 0.001, 10)
+  floor.scale(4, 0.001, 4)
   objectsArray.push(floor)
 
   //ceiling
   var ceiling = new Node({ color: [0.5, 0.5, 0.7] })
-  ceiling.translate(0,3,0)
-  ceiling.scale(10, 0.001, 10)
+  ceiling.translate(0,4,0)
+  ceiling.scale(4, 0.001, 4)
   objectsArray.push(ceiling)
 
-  var wall = new Node({ color: [0.5, 0.5, 0.7] })
-  wall.scale(10, 3, 0.001)
-  wall.translate(0, 1.5, -5)
-  walls = createRadialRepetition(wall, {n:4, r:0, offset: true})
+  var wall = new Node({ color: [0.5, 0.5, 0.68] })
+  wall.translate(2,2,0)
+  wall.scale(0.001, 4, 4)
+  walls = createRadialRepetition(wall, {n:4, r:0, offset: true, m:3})
+  walls.rotate(-90, 0, 1, 0)
   objectsArray.push(walls)
 
   var objects = {}

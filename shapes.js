@@ -323,6 +323,7 @@ function createRadialRepetition(model, args) {
   const defaults = {
     n: 4,
     r: 0.5,
+    m: Infinity,
     offset: false,
     axis: [0, 1, 0],
     unitCircleIs: 'on'
@@ -348,9 +349,8 @@ function createRadialRepetition(model, args) {
   const angle = 360 / opts.n
   model.translate(0, 0, radius)
   var repeated = new Node({noModel: true, name: `${model.opts.name}_rep_${opts.n}`})
-  for (var i = 0; i < opts.n; i++) {
+  for (var i = 0; i < Math.min(opts.n, opts.m); i++) {
     repeated.children[`${model.opts.name}_${i+1}`] = new Node({noModel: true, children: {model}, name: `${model.opts.name}_${i+1}`})
-    //repeated.children[`${model.opts.name}_${i+1}`].rotate(angle * (i-!opts.offset/2), 0, 1, 0)
     repeated.children[`${model.opts.name}_${i+1}`].rotate(angle * (i+!opts.offset/2), opts.axis[0], opts.axis[1], opts.axis[2])
   }
   return repeated
