@@ -1,22 +1,32 @@
 
 const g_Colors = {
-  chairLegColor: [0.5, 0.5, 0.5],
-  chairSeatColor: [0.9, 0.9, 0.9],
+  chairLegColor: [0.6, 0.6, 0.6],
+  chairSeatColor: [0.95, 0.9, 0.95],
+  chairBackColor: [0.95, 0.9, 0.95],
   tableLegColor: [0.5, 0.5, 0.5],
-  tableTopColor: [0.9, 0.9, 0.9],
+  tableTopColor: [0.85, 0.8, 0.85],
   tvScreenColor: [0.0, 0.0, 0.0],
   tvBorderColor: [0.3, 0.3, 0.3],
   cabinetMainColor: [0.75, 0.5, 0],
   cabinetHandleColor: [0.5, 0.5, 0.5],
-  reclinerSeatColor: [0.6, 0.5, 0.7]
+  reclinerSeatColor: [0.5, 0.7, 0.6]
 }
 
 const g_Sides = 32
 
-function createCabinet() {
+function createCabinet(args) {
   var cabinetGroupArray = []
 
-  var side = new Node({name: 'cabinetBorderSide', color: g_Colors.cabinetMainColor})
+  // define defaults
+  const defaults = {
+    image: undefined,
+  }
+
+  var {image} = Object.assign({}, defaults, args);
+  console.log(args)
+
+  console.log(image)
+  var side = new Node({name: 'cabinetBorderSide', color: g_Colors.cabinetMainColor, textureMode: 'repeat', image: image})
   side.scale(1, 1, 0.05)
   side.rotate(180, 0, 1, 0)
   var border = createBorder({model:side, n: 4, r: 0.5})
@@ -24,27 +34,27 @@ function createCabinet() {
   border.scale(1/1.05, 1, 1/1.05)
   cabinetGroupArray.push(border)
 
-  var back = new Node({name: 'cabinetBack', color: g_Colors.cabinetMainColor})
+  var back = new Node({name: 'cabinetBack', color: g_Colors.cabinetMainColor, textureMode: 'repeat', image: image})
   back.scale(1, 0.1, 1)
   back.translate(0, -0.5, 0)
   cabinetGroupArray.push(back)
 
-  var shelf = new Node({name: 'cabinetShelf', color: g_Colors.cabinetMainColor})
+  var shelf = new Node({name: 'cabinetShelf', color: g_Colors.cabinetMainColor, textureMode: 'repeat', image: image})
   shelf.scale(0.9, 0.95, 0.05)
   cabinetGroupArray.push(shelf)
   
-  var cabinetDoorBorderEdge = createQuarterPrism({color: g_Colors.cabinetMainColor})
+  var cabinetDoorBorderEdge = createQuarterPrism({color: g_Colors.cabinetMainColor, textureMode: 'repeat', image: image})
   cabinetDoorBorderEdge.scale(1, 1, 0.05)
   cabinetDoorBorderEdge.rotate(180, 0, 1, 0)
-  var cabinetDoorBorder = createBorder({model: cabinetDoorBorderEdge})
+  var cabinetDoorBorder = createBorder({model: cabinetDoorBorderEdge, textureMode: 'repeat', image: image})
   cabinetDoorBorder.scale(1/1.05, 1, 1/1.05)
   cabinetDoorBorder.translate(0,0.5,0)
 
-  var cabinetDoorHandle = new Node({color: g_Colors.cabinetHandleColor, sides: 4, offset: true})
+  var cabinetDoorHandle = new Node({color: g_Colors.cabinetHandleColor, sides: 4, offset: true, textureMode: 'stretch', image: './resources/metal.png'})
   cabinetDoorHandle.scale(0.1, 2, 0.1)
   cabinetDoorHandle.translate(0.25, 1, 0)
 
-  var cabinetDoor = new Node({color: g_Colors.cabinetMainColor, name: 'cabinetDoor'})
+  var cabinetDoor = new Node({color: g_Colors.cabinetMainColor, name: 'cabinetDoor', textureMode: 'repeat', image: image})
   //cabinetDoor.translate(0.025, 0.4825, 0)
   //cabinetDoor.opts.origin = [-0.55, 0.1, 0]
   //cabinetDoor.translate(0.5,0,0)
@@ -287,7 +297,7 @@ function createChair(args) {
   seatBase.scale(0.5, 0.05, 0.5)
   seatBase.translate(0, 0.525, 0)
 
-  var seatBack = createHalfPrism({sides: sides, color: g_Colors.chairSeatColor})
+  var seatBack = createHalfPrism({sides: sides, color: g_Colors.chairBackColor})
   seatBack.scale(0.6, 0.5, 0.1)
   seatBack.translate(0, 0.85, -0.2)
   seatBack.rotate(90, 0, 0, 1)
@@ -305,7 +315,8 @@ function createBorder(args) {
     lMult: 0.0475,
     model: createQuarterPrism(),
     offset: true,
-    unitCircleIs: 'on'
+    unitCircleIs: 'on',
+    image: undefined
   }
 
   const unitCircleDict = {inside: 1, on: Math.sqrt(2), outside: 2}
@@ -363,12 +374,13 @@ function createHalfPrism(args) {
   const defaults = {
     sides: 4,
     color: [0, 1, 0],
-    name: "Half Prism"
+    name: "Half Prism",
+    image: undefined
   }
 
   var opts = Object.assign({}, defaults, args);
-  var half = new Node({color: opts.color, name: `${opts.name}: half-cube`})
-  var prism = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism`})
+  var half = new Node({color: opts.color, name: `${opts.name}: half-cube`, textureMode: 'repeat', image: opts.image})
+  var prism = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism`, textureMode: 'repeat', image: opts.image})
   //halfPrism = new Node({noModel: true, children: [half, prism]})
   var halfPrism = new Node({noModel: true, children: {half, prism}, name: opts.name})
   half.opts.origin = [0, 0, -0.5]
@@ -384,13 +396,14 @@ function createQuarterPrism(args) {
   const defaults = {
     sides: 4,
     color: [0, 1, 0],
-    name: "Quarter Prism"
+    name: "Quarter Prism",
+    image: undefined
   }
 
   var opts = Object.assign({}, defaults, args);
-  var half = new Node({color: opts.color, name: `${opts.name}: half-cube`})
-  var quarter = new Node({color: opts.color, name: `${opts.name}: quarter-cube`})
-  var prism = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism`})
+  var half = new Node({color: opts.color, name: `${opts.name}: half-cube`, textureMode: 'repeat', image: opts.image})
+  var quarter = new Node({color: opts.color, name: `${opts.name}: quarter-cube`, textureMode: 'repeat', image: opts.image})
+  var prism = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism`, textureMode: 'repeat', image: opts.image})
   var quarterPrism = new Node({noModel: true, children: {half, prism, quarter}})
 
   quarter.opts.origin = [0, 0.5, -0.5]
@@ -408,15 +421,16 @@ function createCornerPrism(args) {
   const defaults = {
     sides: 4,
     color: [0, 1, 0],
-    name: "Corner Prism"
+    name: "Corner Prism",
+    image: undefined
   }
 
   var opts = Object.assign({}, defaults, args);
-  var half = new Node({color: opts.color, name: `${opts.name}: half-cube`})
-  var quarter1 = new Node({color: opts.color, name: `${opts.name}: quarter-cube 1`})
-  var quarter2 = new Node({color: opts.color, name: `${opts.name}: quarter-cube 1`})
-  var prism1 = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism 1`})
-  var prism2 = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism 2`})
+  var half = new Node({color: opts.color, name: `${opts.name}: half-cube`, textureMode: 'repeat', image: opts.image})
+  var quarter1 = new Node({color: opts.color, name: `${opts.name}: quarter-cube 1`, textureMode: 'repeat', image: opts.image})
+  var quarter2 = new Node({color: opts.color, name: `${opts.name}: quarter-cube 1`, textureMode: 'repeat', image: opts.image})
+  var prism1 = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism 1`, textureMode: 'repeat', image: opts.image})
+  var prism2 = new Node({color: opts.color, sides: opts.sides, fitInCircle: true, offset: true, name: `${opts.name}: prism 2`, textureMode: 'repeat', image: opts.image})
   var cornerPrism = new Node({noModel: true, children: {quarter1, quarter2, half, prism1, prism2}})
 
   half.opts.origin = [0, -0.5, 0]

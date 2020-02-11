@@ -23,13 +23,10 @@ var VSHADER_SOURCE = `
     gl_Position = u_ProjMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
     gl_PointSize = 10.0;
     v_TexCoords = a_TexCoords;
-    if(u_isLighting)
-    {
-       v_Position = vec3(u_ModelMatrix * a_Position); // vertex position in world coordinates
-       vec3 lightDirection = normalize(u_LightPosition - v_Position);
-       v_Normal = normalize((u_NormalMatrix * a_Normal).xyz);
-       v_Color = a_Color;
-    }
+    v_Position = vec3(u_ModelMatrix * a_Position); // vertex position in world coordinates
+    vec3 lightDirection = normalize(u_LightPosition - v_Position);
+    v_Normal = normalize((u_NormalMatrix * a_Normal).xyz);
+    v_Color = a_Color;
   }
 `
 // Fragment shader program
@@ -53,12 +50,12 @@ var FSHADER_SOURCE = `
     if (u_UseTextures) {
       vec4 TexColor = texture2D(u_Sampler, v_TexCoords);
       //diffuse = u_LightColor * TexColor.rgb * nDotL * 1.2;
-      diffuse = u_LightColor * TexColor.rgb * 1.2;
+      diffuse = u_LightColor * TexColor.rgb * (nDotL+0.3) * 1.2;
     } else {
-      diffuse = u_LightColor * v_Color.rgb * nDotL;
+      diffuse = u_LightColor * v_Color.rgb * (nDotL+0.3);
     }
     vec3 ambient = u_AmbientLightColor * v_Color.rgb;
-    gl_FragColor = vec4(diffuse + ambient, v_Color.a);
+    gl_FragColor = vec4(diffuse *(0.5+ambient), v_Color.a);
     //gl_FragColor = vec4(diffuse, v_Color.a);
   }
   `
@@ -69,12 +66,12 @@ var projMatrix = new Matrix4() // The projection matrix
 var g_normalMatrix = new Matrix4() // Coordinate transformation matrix for normals
 
 const cameraDefaults = {
-  //g_hAngle: glMatrix.glMatrix.toRadian(75.0),
+  g_hAngle: glMatrix.glMatrix.toRadian(75.0),
+  g_vAngle: glMatrix.glMatrix.toRadian(-9.0),
+  g_Pos: [-5, 1.5, 1]
+  //g_Pos: [0, 1.5, 4],
+  //g_hAngle: glMatrix.glMatrix.toRadian(0.0),
   //g_vAngle: glMatrix.glMatrix.toRadian(-10.0),
-  //g_Pos: [-5, 1.5, 1]
-  g_Pos: [0, 1.5, 4],
-  g_hAngle: glMatrix.glMatrix.toRadian(0.0),
-  g_vAngle: glMatrix.glMatrix.toRadian(-10.0),
 }
 
 // camera angle
@@ -145,7 +142,7 @@ class Node {
 
     //if the model is to be drawn, initialise vertex buffers
     if (!this.opts.noModel) {
-      this.buffers = initPrismVertexBuffers(this.opts.sides, this.opts.color, this.opts.offset, this.opts.fitInCircle)
+      this.buffers = initPrismVertexBuffers(this.opts.sides, this.opts.color, this.opts.offset, this.opts.fitInCircle, this.opts.textureMode)
     }
   }
 
@@ -188,46 +185,47 @@ class Node {
 
   // Node.draw() function
   draw(parentModelMatrix) {
-    if ((typeof(this.opts.image) !== 'undefined') && ((new Set(['stretch', 'repeat'])).has(this.opts.textureMode))){
-      gl.uniform1i(uniforms.UseTextures, true) // Will apply textures
+    if ((typeof (this.opts.image) !== 'undefined') && ((new Set(['stretch', 'repeat'])).has(this.opts.textureMode))) {
+      //gl.uniform1i(uniforms.UseTextures, true) // Will apply textures
+      gl.uniform1i(uniforms.UseTextures, false)
       if (!initArrayBuffer('a_TexCoords', this.buffers.texCoords, 2, gl.FLOAT)) return -1;
       
-      var Cubetexture = gl.createTexture();   // Create a texture object
-      Cubetexture.image = new Image();  // Create the image object
-      // Tell the browser to load an image
-      // Register the event handler to be called on loading an image
-      Cubetexture.image.src = this.opts.image;
-      Cubetexture.image.onload = function () {
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
+     var texture = gl.createTexture();
+     gl.bindTexture(gl.TEXTURE_2D, texture);
+     // Fill the texture with a 1x1 blue pixel.
+     //gl.uniform1i(uniforms.UseTextures, false)
+     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE,
+                   new Uint8Array(this.opts.color));
+     // Asynchronously load an image
+     var image = new Image();
+     image.src = this.opts.image;
+     image.addEventListener('load', function() {
+      
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
+       // Now that the image has loaded make copy it to the texture.
+       gl.bindTexture(gl.TEXTURE_2D, texture);
+       //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,gl.UNSIGNED_BYTE, image);
+       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+       gl.generateMipmap(gl.TEXTURE_2D);
+       
+       this.drawRender(parentModelMatrix)
+     }.call(this));
 
-        // Enable texture unit0
-        gl.activeTexture(gl.TEXTURE0);
-      
-        // Bind the texture object to the target
-        gl.bindTexture(gl.TEXTURE_2D, Cubetexture);
-      
-        // Set the texture image
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, Cubetexture.image);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      
-        // Assign u_Sampler to TEXTURE0
-        gl.uniform1i(uniforms.Sampler, 0);
 
-        gl.uniform1i(uniforms.UseTextures, true)
-        
-      };
-      this.drawRender(parentModelMatrix)
       
+
     } else {
       gl.uniform1i(uniforms.UseTextures, false)
       this.drawRender(parentModelMatrix)
     }
-    
+
 
   }
   drawRender(parentModelMatrix) {
+    if ((typeof (this.opts.image) !== 'undefined') && ((new Set(['stretch', 'repeat'])).has(this.opts.textureMode))) {
+      gl.uniform1i(uniforms.UseTextures, true)
+    }
+
     this.matrices.model = new Matrix4
     glMatrix.mat4.multiply(this.matrices.model.elements, (new Matrix4).elements, this.matrices.translation.elements)
     glMatrix.mat4.multiply(this.matrices.model.elements, this.matrices.model.elements, this.matrices.rotation.elements)
@@ -249,7 +247,7 @@ class Node {
         if (!initArrayBuffer('a_Color', this.buffers.colors, 3, gl.FLOAT)) return -1
         if (!initArrayBuffer('a_Normal', this.buffers.normals, 3, gl.FLOAT)) return -1
 
-        
+
 
         // Write the indices to the buffer object
         var indexBuffer = gl.createBuffer()
@@ -272,7 +270,7 @@ class Node {
     }
   }
 }
-
+/*
 function loadTexAndDraw(gl, n, texture, u_Sampler, u_UseTextures) {
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
 
@@ -296,7 +294,7 @@ function loadTexAndDraw(gl, n, texture, u_Sampler, u_UseTextures) {
 
   // Draw the textured cube
   //gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
-}
+}*/
 
 // scene root: cannot have transformations or model data
 const root = new Object({
@@ -360,7 +358,7 @@ function main() {
   // calculate the view matrix and pass to uniform variable, and clear the canvas
   //refreshView()
   // calculate the projection matrix and pass to uniform variable
-  projMatrix.setPerspective(30, canvas.width / canvas.height, 1, 100)
+  projMatrix.setPerspective(32, canvas.width / canvas.height, 1, 100)
   gl.uniformMatrix4fv(uniforms.ProjMatrix, false, projMatrix.elements)
 
   gl.uniform1i(uniforms.isLighting, true) // Will apply lighting
