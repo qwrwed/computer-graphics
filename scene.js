@@ -1,11 +1,10 @@
 
 // Manual definition of objects (push each child of the root node to objectsArray)
-function defineObjects () {
+function defineObjects() {
   var objectsArray = []
 
   // cabinet
   var cabinetNode = createCabinet({ imageSrc: './resources/wood.png' })
-  //cabinetNode.scale(1.4, 0.7, 0.7)
   cabinetNode.scale(1, 0.85, 0.85)
   cabinetNode.translate(0, 0.5 * 0.85, 0)
   //objectsArray.push(cabinetNode)
@@ -14,12 +13,12 @@ function defineObjects () {
   var tvNode = createTV()
   tvNode.translate(0, 0.845, 0)
   // objectsArray.push(tvNode)
-  var tvAndCabinetNode = new Node({ noModel: true, children: { cabinetNode, tvNode }, name: 'tvAndCabinetNode' })
+  var tvAndCabinetNode = new sceneNode({ noModel: true, children: { cabinetNode, tvNode }, name: 'tvAndCabinetNode' })
   tvAndCabinetNode.translate(-1, 0, -1)
   objectsArray.push(tvAndCabinetNode)
 
   // clock
-  var clockNode = createClock( {imageSrc: './resources/clock.jpg'} )
+  var clockNode = createClock({ imageSrc: './resources/clock.jpg' })
   clockNode.scale(0.5 / 1, 0.5 / 0.05, 0.5)
   clockNode.rotate(180, 1, 0, 0)
   clockNode.translate(0, 0, -1)
@@ -32,54 +31,67 @@ function defineObjects () {
   chairNode.rotate(180, 0, 1, 0)
   var chairsNode = createRadialRepetition(chairNode, { n: 4, r: 1 })
   var tableNode = createTable()
-  var tablesAndChairsNode = new Node({ noModel: true, children: { tableNode, chairsNode }, name: 'tablesAndChairsNode' })
+  var tablesAndChairsNode = new sceneNode({ noModel: true, children: { tableNode, chairsNode }, name: 'tablesAndChairsNode' })
   objectsArray.push(tablesAndChairsNode)
   tablesAndChairsNode.translate(1, 0, 0)
 
   // recliner
   var recliner = createRecliner()
-  var reclinerNode1 = new Node({ noModel: true, children: { recliner }, name: 'reclinerNode1' })
-  var reclinerNode2 = new Node({ noModel: true, children: { recliner }, name: 'reclinerNode2' })
+  var reclinerNode1 = new sceneNode({ noModel: true, children: { recliner }, name: 'reclinerNode1' })
+  var reclinerNode2 = new sceneNode({ noModel: true, children: { recliner }, name: 'reclinerNode2' })
   reclinerNode1.translate(0.5, 0, 0)
   reclinerNode2.translate(-0.5, 0, 0)
-  var reclinersNode = new Node({ noModel: true, children: { reclinerNode1, reclinerNode2 }, name: 'reclinersNode' })
+  var reclinersNode = new sceneNode({ noModel: true, children: { reclinerNode1, reclinerNode2 }, name: 'reclinersNode' })
   reclinersNode.translate(-1, 0, 1)
   reclinersNode.rotate(180, 0, 1, 0)
   objectsArray.push(reclinersNode)
 
   // floor
-  var floor = new Node({ name: 'floor', color: [0.8, 0.8, 0.8], textureMode: 'repeat', imageSrc: './resources/floor.png' })
+  var floor = new sceneNode({ name: 'floor', color: [0.8, 0.8, 0.8], textureMode: 'repeat', imageSrc: './resources/floor.png' })
   floor.scale(5, 0.001, 5)
   objectsArray.push(floor)
 
   // ceiling
-  var ceiling = new Node({ color: [0.8, 0.8, 0.8] })
+  var ceiling = new sceneNode({ color: [0.8, 0.8, 0.8] })
   ceiling.translate(0, 4, 0)
   ceiling.scale(5, 0.001, 5)
   objectsArray.push(ceiling)
 
-  var wall = new Node({ color: [0.9, 0.9, 1] })
+  // walls
+  var wall = new sceneNode({ color: [0.9, 0.9, 1] })
   wall.translate(2.5, 2, 0)
   wall.scale(0.001, 4, 5)
   var walls = createRadialRepetition(wall, { n: 4, r: 0, offset: true, m: 3 })
   walls.rotate(-90, 0, 1, 0)
   objectsArray.push(walls)
 
-  var testCube = new Node({ name: 'testCube', color: [1, 1, 1], offset: false, sides: 32, fitInCircle: false, textureMode: 'stretch', imageSrc: './resources/bigtest.png' })
-  testCube.translate(0, 1, 0)
+  //test object
+  //var testCube = new sceneNode({ name: 'testCube', color: [1, 1, 1], offset: false, sides: 5, fitInCircle: false, offset: false, textureMode: 'stretch', imageSrc: './resources/test.gif' })
+  //testCube.translate(0, 1, 0)
   //objectsArray.push(testCube)
+
+  //light
+  var lightNode = createLight()
+  lightNode.translate(0, 4, 0)
+  objectsArray.push(lightNode);
+
 
   var objects = {}
   objectsArray.forEach((e, i) => { objects[e.opts.name] = e })
   return objects
 }
 
+// last recorded time
 var then = 0
 var cabinetDoorAngle = 0
 var cabinetShelfDisplacement = 0
 var reclinerAngle = 0
+
 // Draw the scene repeatedly
-function render (now) {
+function render(now) {
+
+  // update position/rotation etc. values based on user input or time, then render scene using them
+
   now *= 0.001 // convert to seconds
   const deltaTime = now - then
   then = now
@@ -100,6 +112,9 @@ function render (now) {
     if (keysPressed.has('Digit3')) {
       root.children.tablesAndChairsNode.opts.hidden = false
     }
+    if (keysPressed.has('Digit4')) {
+      root.children.lightNode.opts.hidden = false
+    }
   } else {
     if (keysPressed.has('Digit1')) {
       root.children.tvAndCabinetNode.opts.hidden = true
@@ -110,6 +125,9 @@ function render (now) {
     if (keysPressed.has('Digit3')) {
       root.children.tablesAndChairsNode.opts.hidden = true
     }
+    if (keysPressed.has('Digit4')) {
+      root.children.lightNode.opts.hidden = true
+    }
   }
 
   if (root.children.tvAndCabinetNode) {
@@ -118,8 +136,9 @@ function render (now) {
   } else if (root.children.cabinetNode) {
     var cabinetNode = root.children.cabinetNode
     var clockNode = cabinetNode.children.cabinetShelf.children.clockNode
+  } else if (root.children.clockNode) {
+    var clockNode = root.children.clockNode
   }
-  // var clockNode = root.children.clockNode
 
   if (clockNode) {
     var date = new Date()
@@ -128,27 +147,10 @@ function render (now) {
     var minuteHand = clockNode.children.clockMinuteHand
     minuteHand.setRotate(((date.getMinutes() / 60) + (date.getSeconds() / 60 / 60)) * 360, 0, -1, 0)
     var hourHand = clockNode.children.clockHourHand
-    hourHand.setRotate(((date.getHours() / 12)+(date.getMinutes() / 12 / 60)) * 360, 0, -1, 0)
+    hourHand.setRotate(((date.getHours() / 12) + (date.getMinutes() / 12 / 60)) * 360, 0, -1, 0)
   }
 
-  // console.log(root.children)
-  if (root.children.reclinersNode) {
-    var reclinerNode = root.children.reclinersNode.children.reclinerNode1.children.recliner
-    const rotationSpeed = 90 / 1.5
-    if (keysPressed.has('KeyF')) {
-      reclinerAngle -= rotationSpeed * deltaTime
-      reclinerAngle = Math.max(reclinerAngle, -45)
-      reclinerNode.children.reclinerHead.setRotate(reclinerAngle, 1, 0, 0)
-      reclinerNode.children.reclinerFoot.setRotate(reclinerAngle, 1, 0, 0)
-    }
-    if (keysPressed.has('KeyG')) {
-      reclinerAngle += rotationSpeed * deltaTime
-      reclinerAngle = Math.min(reclinerAngle, 0)
-      reclinerNode.children.reclinerHead.setRotate(reclinerAngle, 1, 0, 0)
-      reclinerNode.children.reclinerFoot.setRotate(reclinerAngle, 1, 0, 0)
-    }
-  }
-
+  // open/close doors and slide shelf out/in
   if (cabinetNode) {
     var door = cabinetNode.children.cabinetDoorLeft.children.cabinetDoorNode
     var shelf = cabinetNode.children.cabinetShelf
@@ -172,14 +174,49 @@ function render (now) {
     }
   }
 
+  // angle head/footrest
+  if (root.children.reclinersNode) {
+    var reclinerNode = root.children.reclinersNode.children.reclinerNode1.children.recliner
+    const rotationSpeed = 90 / 1.5
+    if (keysPressed.has('KeyF')) {
+      reclinerAngle -= rotationSpeed * deltaTime
+      reclinerAngle = Math.max(reclinerAngle, -45)
+      reclinerNode.children.reclinerHead.setRotate(reclinerAngle, 1, 0, 0)
+      reclinerNode.children.reclinerFoot.setRotate(reclinerAngle, 1, 0, 0)
+    }
+    if (keysPressed.has('KeyG')) {
+      reclinerAngle += rotationSpeed * deltaTime
+      reclinerAngle = Math.min(reclinerAngle, 0)
+      reclinerNode.children.reclinerHead.setRotate(reclinerAngle, 1, 0, 0)
+      reclinerNode.children.reclinerFoot.setRotate(reclinerAngle, 1, 0, 0)
+    }
+  }
+
+  // dangle light assembly and set gl light position to light model position
+  if (root.children.lightNode) {
+    const lightRotateMult = 5
+    const lightTimeMult = 1
+    root.children.lightNode.children.wireSegment1.setRotate(Math.sin(now * lightTimeMult) * lightRotateMult, 1, 0, 0)
+    root.children.lightNode.children.wireSegment1.children.wireSegment2.setRotate(Math.sin(now * lightTimeMult) * lightRotateMult, 1, 0, 0)
+    root.children.lightNode.children.wireSegment1.children.wireSegment2.children.wireSegment3.setRotate(Math.sin(now * lightTimeMult) * lightRotateMult, 1, 0, 0)
+    root.children.lightNode.children.wireSegment1.children.wireSegment2.children.wireSegment3.children.wireSegment4.setRotate(Math.sin(now * lightTimeMult) * lightRotateMult, 1, 0, 0)
+
+    var lightModelMatrix = root.children.lightNode.children.wireSegment1.children.wireSegment2.children.wireSegment3.children.wireSegment4.children.light.matrices.augmentedModelMatrix
+
+    g_lightPosition.elements = [lightModelMatrix.elements[12], lightModelMatrix.elements[13], lightModelMatrix.elements[14]]
+  
+    gl.uniform3fv(uniforms.LightPosition, g_lightPosition.elements)
+
+  }
+
+  // update camera, draw scene, request next frame
   refreshView(deltaTime)
   root.draw()
-
   requestAnimationFrame(render)
 }
 
 // set view matrix according to current position and camera angle
-function refreshView (deltaTime) {
+function refreshView(deltaTime) {
   const cameraTranslationSpeed = 1.2 // meters per second
   const cameraRotationSpeed = 0.5 // degrees per second
 
@@ -224,7 +261,7 @@ function refreshView (deltaTime) {
   var eyeTargetAbsolute = []
   glMatrix.vec3.add(eyeTargetAbsolute, eyePos, eyeTargetRelative)
   const upVector = [0, 1, 0]
-  viewMatrix.setLookAt(...eyePos, ...eyeTargetAbsolute, ...upVector)
-  gl.uniformMatrix4fv(uniforms.ViewMatrix, false, viewMatrix.elements)
+  g_viewMatrix.setLookAt(...eyePos, ...eyeTargetAbsolute, ...upVector)
+  gl.uniformMatrix4fv(uniforms.ViewMatrix, false, g_viewMatrix.elements)
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 }

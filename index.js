@@ -1,4 +1,6 @@
 
+// server program (CORS)
+
 const http = require('http')
 const fs = require('fs')
 
@@ -7,7 +9,7 @@ const PORT = 8080
 http
     .createServer((request, response) => {
         fs.readFile(`.${request.url}`, (err, data) => {
-            //console.log(request.url)
+
             if (err) {
                 response.writeHeader(404, {
                     'Content-Type': 'text/plain'
