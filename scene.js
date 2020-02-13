@@ -1,25 +1,25 @@
+
 // Manual definition of objects (push each child of the root node to objectsArray)
-function defineObjects() {
+function defineObjects () {
   var objectsArray = []
 
-
-  //cabinet
-  var cabinetNode = createCabinet({image:'./resources/wood.png'})
+  // cabinet
+  var cabinetNode = createCabinet({ imageSrc: './resources/wood.png' })
   //cabinetNode.scale(1.4, 0.7, 0.7)
   cabinetNode.scale(1, 0.85, 0.85)
   cabinetNode.translate(0, 0.5 * 0.85, 0)
   //objectsArray.push(cabinetNode)
 
-  //tv
+  // tv
   var tvNode = createTV()
   tvNode.translate(0, 0.845, 0)
-  //objectsArray.push(tvNode)
+  // objectsArray.push(tvNode)
   var tvAndCabinetNode = new Node({ noModel: true, children: { cabinetNode, tvNode }, name: 'tvAndCabinetNode' })
   tvAndCabinetNode.translate(-1, 0, -1)
   objectsArray.push(tvAndCabinetNode)
 
-  //clock
-  var clockNode = createClock()
+  // clock
+  var clockNode = createClock( {imageSrc: './resources/clock.jpg'} )
   clockNode.scale(0.5 / 1, 0.5 / 0.05, 0.5)
   clockNode.rotate(180, 1, 0, 0)
   clockNode.translate(0, 0, -1)
@@ -28,6 +28,7 @@ function defineObjects() {
 
   // table and chairs
   var chairNode = createChair()
+  //objectsArray.push(chairNode)
   chairNode.rotate(180, 0, 1, 0)
   var chairsNode = createRadialRepetition(chairNode, { n: 4, r: 1 })
   var tableNode = createTable()
@@ -35,7 +36,7 @@ function defineObjects() {
   objectsArray.push(tablesAndChairsNode)
   tablesAndChairsNode.translate(1, 0, 0)
 
-  //recliner
+  // recliner
   var recliner = createRecliner()
   var reclinerNode1 = new Node({ noModel: true, children: { recliner }, name: 'reclinerNode1' })
   var reclinerNode2 = new Node({ noModel: true, children: { recliner }, name: 'reclinerNode2' })
@@ -46,26 +47,26 @@ function defineObjects() {
   reclinersNode.rotate(180, 0, 1, 0)
   objectsArray.push(reclinersNode)
 
-
-  //floor
-  var floor = new Node({ color: [0.9, 0.7, 0.5], textureMode: 'repeat', image: './resources/floor.png'})
+  // floor
+  var floor = new Node({ name: 'floor', color: [0.8, 0.8, 0.8], textureMode: 'repeat', imageSrc: './resources/floor.png' })
   floor.scale(5, 0.001, 5)
   objectsArray.push(floor)
 
-  //ceiling
+  // ceiling
   var ceiling = new Node({ color: [0.8, 0.8, 0.8] })
-  ceiling.translate(0,4,0)
+  ceiling.translate(0, 4, 0)
   ceiling.scale(5, 0.001, 5)
   objectsArray.push(ceiling)
 
   var wall = new Node({ color: [0.9, 0.9, 1] })
-  wall.translate(2.5,2,0)
+  wall.translate(2.5, 2, 0)
   wall.scale(0.001, 4, 5)
-  walls = createRadialRepetition(wall, {n:4, r:0, offset: true, m:3})
+  var walls = createRadialRepetition(wall, { n: 4, r: 0, offset: true, m: 3 })
   walls.rotate(-90, 0, 1, 0)
   objectsArray.push(walls)
 
-  var testCube = new Node({color: [1,1,1], offset: false, sides: 4, fitInCircle: false, textureMode: 'repeat', image:'./resources/wood.png'})
+  var testCube = new Node({ name: 'testCube', color: [1, 1, 1], offset: false, sides: 32, fitInCircle: false, textureMode: 'stretch', imageSrc: './resources/bigtest.png' })
+  testCube.translate(0, 1, 0)
   //objectsArray.push(testCube)
 
   var objects = {}
@@ -78,15 +79,15 @@ var cabinetDoorAngle = 0
 var cabinetShelfDisplacement = 0
 var reclinerAngle = 0
 // Draw the scene repeatedly
-function render(now) {
-  now *= 0.001;  // convert to seconds
-  const deltaTime = now - then;
-  then = now;
+function render (now) {
+  now *= 0.001 // convert to seconds
+  const deltaTime = now - then
+  then = now
 
   if (keysPressed.has('KeyV')) {
-    g_hAngle = cameraDefaults.g_hAngle;
-    g_vAngle = cameraDefaults.g_vAngle;
-    g_Pos = cameraDefaults.g_Pos;
+    g_hAngle = cameraDefaults.g_hAngle
+    g_vAngle = cameraDefaults.g_vAngle
+    g_Pos = cameraDefaults.g_Pos
   }
 
   if (keysPressed.has('ShiftLeft')) {
@@ -111,8 +112,6 @@ function render(now) {
     }
   }
 
-
-
   if (root.children.tvAndCabinetNode) {
     var cabinetNode = root.children.tvAndCabinetNode.children.cabinetNode
     var clockNode = cabinetNode.children.cabinetShelf.children.clockNode
@@ -120,31 +119,30 @@ function render(now) {
     var cabinetNode = root.children.cabinetNode
     var clockNode = cabinetNode.children.cabinetShelf.children.clockNode
   }
-  //var clockNode = root.children.clockNode
-
+  // var clockNode = root.children.clockNode
 
   if (clockNode) {
-    var date = new Date
+    var date = new Date()
     var secondHand = clockNode.children.clockSecondHand
     secondHand.setRotate((date.getSeconds() / 60) * 360, 0, -1, 0)
     var minuteHand = clockNode.children.clockMinuteHand
-    minuteHand.setRotate((date.getMinutes() / 60) * 360, 0, -1, 0)
-    var minuteHand = clockNode.children.clockHourHand
-    minuteHand.setRotate((date.getHours() / 12) * 360, 0, -1, 0)
+    minuteHand.setRotate(((date.getMinutes() / 60) + (date.getSeconds() / 60 / 60)) * 360, 0, -1, 0)
+    var hourHand = clockNode.children.clockHourHand
+    hourHand.setRotate(((date.getHours() / 12)+(date.getMinutes() / 12 / 60)) * 360, 0, -1, 0)
   }
 
-  //console.log(root.children)
+  // console.log(root.children)
   if (root.children.reclinersNode) {
     var reclinerNode = root.children.reclinersNode.children.reclinerNode1.children.recliner
     const rotationSpeed = 90 / 1.5
     if (keysPressed.has('KeyF')) {
-      reclinerAngle -= rotationSpeed// * deltaTime
+      reclinerAngle -= rotationSpeed * deltaTime
       reclinerAngle = Math.max(reclinerAngle, -45)
       reclinerNode.children.reclinerHead.setRotate(reclinerAngle, 1, 0, 0)
       reclinerNode.children.reclinerFoot.setRotate(reclinerAngle, 1, 0, 0)
     }
     if (keysPressed.has('KeyG')) {
-      reclinerAngle += rotationSpeed// * deltaTime
+      reclinerAngle += rotationSpeed * deltaTime
       reclinerAngle = Math.min(reclinerAngle, 0)
       reclinerNode.children.reclinerHead.setRotate(reclinerAngle, 1, 0, 0)
       reclinerNode.children.reclinerFoot.setRotate(reclinerAngle, 1, 0, 0)
@@ -154,10 +152,10 @@ function render(now) {
   if (cabinetNode) {
     var door = cabinetNode.children.cabinetDoorLeft.children.cabinetDoorNode
     var shelf = cabinetNode.children.cabinetShelf
-    const rotationSpeeed = 90 / 1.5 //degrees per second
+    const rotationSpeeed = 90 / 1.5 // degrees per second
     const translationSpeed = 0.2 / 1.5 // m/s
     if (keysPressed.has('KeyR')) {
-      cabinetDoorAngle += rotationSpeeed// * deltaTime
+      cabinetDoorAngle += rotationSpeeed * deltaTime
       cabinetDoorAngle = Math.min(cabinetDoorAngle, 180)
       door.setRotate(cabinetDoorAngle, 0, 0, 1)
       cabinetShelfDisplacement += translationSpeed * deltaTime
@@ -165,7 +163,7 @@ function render(now) {
       shelf.setTranslate(0, cabinetShelfDisplacement, 0)
     }
     if (keysPressed.has('KeyT')) {
-      cabinetDoorAngle -= rotationSpeeed// * deltaTime
+      cabinetDoorAngle -= rotationSpeeed * deltaTime
       cabinetDoorAngle = Math.max(cabinetDoorAngle, 0)
       door.setRotate(cabinetDoorAngle, 0, 0, 1)
       cabinetShelfDisplacement -= translationSpeed * deltaTime
@@ -177,11 +175,11 @@ function render(now) {
   refreshView(deltaTime)
   root.draw()
 
-  requestAnimationFrame(render);
+  requestAnimationFrame(render)
 }
 
-//set view matrix according to current position and camera angle
-function refreshView(deltaTime) {
+// set view matrix according to current position and camera angle
+function refreshView (deltaTime) {
   const cameraTranslationSpeed = 1.2 // meters per second
   const cameraRotationSpeed = 0.5 // degrees per second
 

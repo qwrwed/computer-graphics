@@ -23,13 +23,10 @@ var VSHADER_SOURCE = `
     gl_Position = u_ProjMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
     gl_PointSize = 10.0;
     v_TexCoords = a_TexCoords;
-    if(u_isLighting)
-    {
-       v_Position = vec3(u_ModelMatrix * a_Position); // vertex position in world coordinates
-       vec3 lightDirection = normalize(u_LightPosition - v_Position);
-       v_Normal = normalize((u_NormalMatrix * a_Normal).xyz);
-       v_Color = a_Color;
-    }
+    v_Position = vec3(u_ModelMatrix * a_Position); // vertex position in world coordinates
+    vec3 lightDirection = normalize(u_LightPosition - v_Position);
+    v_Normal = normalize((u_NormalMatrix * a_Normal).xyz);
+    v_Color = a_Color;
   }
 `
 // Fragment shader program
@@ -106,15 +103,15 @@ var uniqueId = (() => {
 var uniqueTexQuery = (() => {
   var texCounter = 0;
   return function (imageSrc) {
-    const index = image_sources.findIndex(element => element.imageSrc == imageSrc);
+    const index = image_sources.indexOf(image);
     var textureExists;
-    if (index === -1) {
-      image_sources.push({imageSrc: imageSrc, loaded: false});
+    if (index ===  -1) {
+      image_sources.push(image);
       textureExists = false;
-      return [texCounter++, textureExists, false]
-    } else {
+      return [texCounter++, textureExists]
+    } else { 
       textureExists = true;
-      return [index, textureExists, image_sources[index].loaded]
+      return [index, textureExists]
     }
   }
 })()
@@ -127,6 +124,29 @@ var image_sources = []
 // -vertex buffers (prism shape)
 // -array of child Nodes
 // all Nodes also have their own transformation (model matrix), which is applied to all children as well as itself
+
+function loadTex(texture) {
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
+
+  // Enable texture unit0
+  gl.activeTexture(gl.TEXTURE0);
+
+  // Bind the texture object to the target
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  // Set the texture image
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, texture.image);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  // Assign u_Sampler to TEXTURE0
+  gl.uniform1i(uniforms.Sampler, 0);
+
+  // Enable texture mapping
+  gl.uniform1i(uniforms.UseTextures, true);
+
+}
 
 class Node {
   constructor(args) {
@@ -145,7 +165,7 @@ class Node {
       origin: [0, 0, 0], // scale/rotation origin
       hidden: false,
       textureMode: 'none',
-      imageSrc: undefined
+      image: undefined
     }
 
     // define prism attributes by overwriting defaults with given args
@@ -166,49 +186,42 @@ class Node {
     if (!this.opts.noModel) {
       this.buffers = initPrismVertexBuffers(this.opts.sides, this.opts.color, this.opts.offset, this.opts.fitInCircle, this.opts.textureMode)
     }
-    this.texturesLoaded = false;
 
-    if ((typeof (this.opts.imageSrc) !== 'undefined') && ((new Set(['stretch', 'repeat'])).has(this.opts.textureMode))) {
-      const [uniqueTexId, textureExists, textureIsLoaded] = uniqueTexQuery(this.opts.imageSrc);
+    
+    /*
+    this.imageLoaded = false;
+
+    if ((typeof (this.opts.image) !== 'undefined') && ((new Set(['stretch', 'repeat'])).has(this.opts.textureMode))) {
+      const [uniqueTexId, textureExists] = uniqueTexQuery(this.opts.image);
       this.texId = uniqueTexId;
-      if (!textureExists) {
-      
-
-
-      var texture = gl.createTexture();   // Create a texture object
-      texture.image = new Image();  // Create the image object
-      // Tell the browser to load an image
-      // Register the event handler to be called on loading an image
-      var texId = this.texId;
-      texture.image.src = this.opts.imageSrc;
-      texture.image.onload = function () {
-        // Flip the image's y axis
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-
-        // Enable texture unit0
-        gl.activeTexture(gl.TEXTURE0 + texId);
-
-        // Bind the texture object to the target
+      if (!textureExists){
+        console.log("");
+        console.log(`INITIALISING TEXTURE ${this.texId} FOR ${this.opts.name}`)
+        const texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, texture);
 
-        // Set the texture image
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, texture.image);
+        const image = new Image();
+        image.src = './resources/sky.jpg';
+
+        image.onload = function(){
+
+          gl.bindTexture(gl.TEXTURE_2D, texture);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        }
         
-        //generate mip maps (all textures are powers of 2)
-        gl.generateMipmap(gl.TEXTURE_2D)
+        this.imageLoaded = true;
 
-        image_sources[texId].loaded = true;
+      } else {
+        //console.log(`TEXTURE ${this.texId} FOR ${this.opts.name} ALREADY EXISTS`)
+      }
+      //
+    }
+      */
+      
+    
+    
 
-      };
-      //this.drawRender(parentModelMatrix)
-    }
-    } else {
-      gl.uniform1i(uniforms.UseTextures, false)
-      //this.drawRender(parentModelMatrix)
-    }
   }
-
-  
 
   // scale operation: takes 1 or 3 arguments
   scale(x, y, z) {
@@ -249,21 +262,74 @@ class Node {
 
   // Node.draw() function
   draw(parentModelMatrix) {
-
-    //console.log(image_sources)
-    //conso
-    if ((typeof (this.opts.imageSrc) !== 'undefined') && ((new Set(['stretch', 'repeat'])).has(this.opts.textureMode)) && (image_sources[this.texId].loaded)) {
+    /*
+      //gl.uniform1i(uniforms.UseTextures, true) // Will apply textures
+      //gl.uniform1i(uniforms.UseTextures, false)
       if (!initArrayBuffer('a_TexCoords', this.buffers.texCoords, 2, gl.FLOAT)) return -1;
-      gl.uniform1i(uniforms.UseTextures, true);
-      gl.uniform1i(uniforms.Sampler, this.texId);
-    } else {
-      gl.uniform1i(uniforms.UseTextures, false);
-    }
-    this.drawRender(parentModelMatrix)
+      
+     var texture = gl.createTexture();
+     //gl.bindTexture(gl.TEXTURE_2D, texture);
+     // Fill the texture with a 1x1 blue pixel.
+     //gl.uniform1i(uniforms.UseTextures, false)
+     //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array(this.opts.color));
+     // Asynchronously load an image
+     var image = new Image();
+     image.src = this.opts.image;
+     image.addEventListener('load', function() {
+      
+      //gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
+       // Now that the image has loaded make copy it to the texture.
+       //gl.bindTexture(gl.TEXTURE_2D, texture);
+       //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,gl.UNSIGNED_BYTE, image);
+       console.log("loaded");
+       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+       //gl.generateMipmap(gl.TEXTURE_2D);
+       
+       this.drawRender(parentModelMatrix)
+     }.call(this));
 
 
+      
+
+    } else {*/
+/*
+      if (this.imageLoaded) {
+        gl.activeTexture(gl.TEXTURE0);
+        gl.uniform1i(uniforms.UseTextures, true)
+        gl.uniform1i(uniforms.Sampler, 0);
+      } else {
+        gl.uniform1i(uniforms.UseTextures, false)
+      }*/
+
+      var Cubetexture = gl.createTexture();   // Create a texture object
+  if (!Cubetexture) {
+    console.log('Failed to create the texture object');
+    return false;
   }
+
+
+  Cubetexture.image = new Image();  // Create the image object
+  if (!Cubetexture.image) {
+    console.log('Failed to create the image object');
+    return false;
+  }
+
+  // Tell the browser to load an image
+  // Register the event handler to be called on loading an image
+  Cubetexture.image.onload = function(){ loadTex(Cubetexture); };
+  Cubetexture.image.src = './resources/sky.jpg';
+  this.imageLoaded = true;
+      
+      this.drawRender(parentModelMatrix)
+    }
+
+
+  //}
   drawRender(parentModelMatrix) {
+    //if ((typeof (this.opts.image) !== 'undefined') && ((new Set(['stretch', 'repeat'])).has(this.opts.textureMode)) && (this.imageLoaded)) {
+//      gl.uniform1i(uniforms.UseTextures, true)
+    //}
+
     this.matrices.model = new Matrix4
     glMatrix.mat4.multiply(this.matrices.model.elements, (new Matrix4).elements, this.matrices.translation.elements)
     glMatrix.mat4.multiply(this.matrices.model.elements, this.matrices.model.elements, this.matrices.rotation.elements)
@@ -284,6 +350,8 @@ class Node {
         if (!initArrayBuffer('a_Position', this.buffers.vertices, 3, gl.FLOAT)) return -1
         if (!initArrayBuffer('a_Color', this.buffers.colors, 3, gl.FLOAT)) return -1
         if (!initArrayBuffer('a_Normal', this.buffers.normals, 3, gl.FLOAT)) return -1
+        if (!initArrayBuffer('a_Normal', this.buffers.texCoords, 2
+, gl.FLOAT)) return -1
 
 
 
@@ -308,6 +376,31 @@ class Node {
     }
   }
 }
+/*
+function loadTexAndDraw(gl, n, texture, u_Sampler, u_UseTextures) {
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
+
+  // Enable texture unit0
+  gl.activeTexture(gl.TEXTURE0);
+
+  // Bind the texture object to the target
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  // Set the texture image
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, texture.image);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  // Assign u_Sampler to TEXTURE0
+  gl.uniform1i(u_Sampler, 0);
+
+  // Enable texture mapping
+  //gl.uniform1i(u_UseTextures, true);
+
+  // Draw the textured cube
+  //gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+}*/
 
 // scene root: cannot have transformations or model data
 const root = new Object({
