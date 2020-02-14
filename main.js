@@ -6,7 +6,7 @@ var g_projMatrix = new Matrix4() // The projection matrix
 const cameraDefaults = {
   g_hAngle: glMatrix.glMatrix.toRadian(75.0),
   g_vAngle: glMatrix.glMatrix.toRadian(-9.0),
-  g_Pos: [-5, 1.5, 1]
+  g_Pos: [-5, 1.75, 1]
 }
 var ANGLE_STEP = glMatrix.glMatrix.toRadian(3.0) // The increments of rotation angle (converted to radians)
 var g_hAngle = cameraDefaults.g_hAngle // horizontal camera direction
@@ -55,8 +55,12 @@ function main() {
 
   // Retrieve <canvas> element and set size
   canvas = document.getElementById('webgl')
-  canvas.width = document.body.clientWidth
-  canvas.height = document.body.clientHeight * 0.85
+  canvas.width = canvas.clientWidth
+  canvas.height = canvas.clientHeight
+  window.addEventListener('resize', function() {
+    canvas.width = canvas.clientWidth
+    canvas.height = canvas.clientHeight
+  });
 
   // Get the rendering context for WebGL
   gl = getWebGLContext(canvas)
@@ -79,11 +83,12 @@ function main() {
     'isLighting',
     'AmbientLightColor',
     'UseTextures',
-    'Sampler'
+    'Sampler',
+    'modelIsLightSource'
   ]
   uniformNames.forEach(name => { uniforms[name] = gl.getUniformLocation(gl.program, `u_${name}`) })
 
-  // Set the light color (white)
+  // Set the light color
   gl.uniform3f(uniforms.LightColor, ...[0.9, 0.9, 0.9])
 
   //set the ambient light color
@@ -93,8 +98,11 @@ function main() {
   g_projMatrix.setPerspective(32, canvas.width / canvas.height, 1, 100)
   gl.uniformMatrix4fv(uniforms.ProjMatrix, false, g_projMatrix.elements)
 
-  //enable lighting
+  // enable lighting
   gl.uniform1i(uniforms.isLighting, true)
+
+  // by default, is not light source
+  gl.uniform1i(uniforms.modelIsLightSource, false)
 
   // add listeners for keypress/release (use global list of keys currently pressed)
   document.onkeydown = function (ev) {

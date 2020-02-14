@@ -12,7 +12,8 @@ const g_Colors = {
   reclinerSeatColor: [0.5, 0.7, 0.6]
 }
 
-const g_Sides = 32
+// how many sides each prism should have, by default
+var g_Sides = [32]
 
 function createCabinet(args) {
   var cabinetGroupArray = []
@@ -21,55 +22,64 @@ function createCabinet(args) {
   const defaults = {
     imageSrc: undefined,
   }
-
   var { imageSrc } = Object.assign({}, defaults, args)
 
+  // one frame side
   var side = new sceneNode({ name: 'cabinetBorderSide', color: g_Colors.cabinetMainColor, textureMode: 'repeat', imageSrc: imageSrc })
   side.scale(1, 1, 0.05)
   side.rotate(180, 0, 1, 0)
+  // all four frame sides (top, bottom, left, right)
   var border = createBorder({ model: side, n: 4, r: 0.5 })
   border.translate(0, 0.005, 0)
   border.scale(1 / 1.05, 1, 1 / 1.05)
   cabinetGroupArray.push(border)
 
+  // fifth frame side (rear)
   var back = new sceneNode({ name: 'cabinetBack', color: g_Colors.cabinetMainColor, textureMode: 'repeat', imageSrc: imageSrc })
   back.scale(1, 0.1, 1)
   back.translate(0, -0.5, 0)
   cabinetGroupArray.push(back)
 
+  // inner shelf
   var shelf = new sceneNode({ name: 'cabinetShelf', color: g_Colors.cabinetMainColor, textureMode: 'repeat', imageSrc: imageSrc })
   shelf.scale(0.9, 0.95, 0.05)
   cabinetGroupArray.push(shelf)
 
+  // one bevel for the door
   var cabinetDoorBorderEdge = createQuarterPrism({ name: 'cabinetDoorBorderEdge', color: g_Colors.cabinetMainColor, textureMode: 'repeat', imageSrc: imageSrc })
   cabinetDoorBorderEdge.scale(1, 1, 0.05)
   cabinetDoorBorderEdge.rotate(180, 0, 1, 0)
+
+  // all four bevels for the door
   var cabinetDoorBorder = createBorder({ name: 'cabinetDoorBorder', model: cabinetDoorBorderEdge, textureMode: 'repeat', imageSrc: imageSrc })
   cabinetDoorBorder.scale(1 / 1.05, 1, 1 / 1.05)
   cabinetDoorBorder.translate(0, 0.5, 0)
 
+  // door handle
   var cabinetDoorHandle = new sceneNode({ name: 'cabinetDoorHandle', color: g_Colors.cabinetHandleColor, sides: 4, offset: true, textureMode: 'stretch', imageSrc: './resources/metal.png' })
   cabinetDoorHandle.scale(0.1, 2, 0.1)
   cabinetDoorHandle.translate(0.25, 1, 0)
 
+  // the door itself
   var cabinetDoor = new sceneNode({ color: g_Colors.cabinetMainColor, name: 'cabinetDoor', textureMode: 'repeat', imageSrc: imageSrc })
+  
+  // full door aseembly
   var cabinetDoorNode = new sceneNode({ name: 'cabinetDoorNode', noModel: true, children: { cabinetDoor, cabinetDoorBorder, cabinetDoorHandle } })
 
-  // cabinetDoor.opts.origin = [-0.55, 0.1, 0]
+  // transform the door and set rotation origin\
   cabinetDoorNode.opts.origin = [-0.5, 0, 0]
   cabinetDoorNode.scale(0.5, 0.05, 1)
   cabinetDoorNode.translate(0, 0.5, 0)
   cabinetDoorNode.translate(0, 0.025, 0)
   cabinetDoorNode.opts.origin = [-0.5, -0.025, 0]
 
+  // create parent nodes so that transformations to one door will apply to both
   var doorLeft = new sceneNode({ noModel: true, children: { cabinetDoorNode }, name: 'cabinetDoorLeft' })
   var doorRight = new sceneNode({ noModel: true, children: { cabinetDoorNode }, name: 'cabinetDoorRight' })
   doorRight.rotate(180, 0, 1, 0)
-
-  // cabinetDoor.rotate(90, 0, 0, 1)
-
   cabinetGroupArray.push(doorLeft, doorRight)
 
+  // full cabinet assembly
   var cabinetNode = new sceneNode({ noModel: true, name: 'cabinetNode' })
   cabinetGroupArray.forEach((e, i) => { cabinetNode.children[e.opts.name] = e })
   cabinetNode.rotate(90, 1, 0, 0)
@@ -83,15 +93,18 @@ function createClock( args ) {
   const defaults = {
     imageSrc: undefined,
   }
-
   var { imageSrc } = Object.assign({}, defaults, args)
-
-  var clockGroupArray = []
+  
+  // full clock assembly
   var clockNode = new sceneNode({
     noModel: true,
     name: 'clockNode'
   })
 
+  // holds all children of main clock node
+  var clockGroupArray = []
+
+  // flat border (outer disc)
   var clockFaceBorder = new sceneNode({
     sides: g_Sides,
     name: 'clockFaceBorder',
@@ -100,13 +113,14 @@ function createClock( args ) {
   clockFaceBorder.scale(1.1, 0.099, 1.1)
   clockGroupArray.push(clockFaceBorder)
 
+  // beveled border (massive performance drop, so not actually pushed to node)
   var clockBorderPart = createQuarterPrism({ color: [0.5, 0.5, 0.5] })
   clockBorderPart.scale(1, 0.2, 0.2)
   clockBorderPart.rotate(180, 0, 1, 0)
-  var clockBorder = createBorder({ model: clockBorderPart, n: 32, unitCircleIs: 'inside', lMult: 1 })
+  var clockBorder = createBorder({ model: clockBorderPart, n: g_Sides, unitCircleIs: 'inside', lMult: 1 })
   //clockGroupArray.push(clockBorder)
   
-
+  // flat face (inner disc)
   var clockFace = new sceneNode({
     sides: g_Sides,
     name: 'clockFace',
@@ -192,7 +206,7 @@ function createLight(args) {
   var wireSegmentModel = new sceneNode({color: [0.3, 0.3, 0.3], sides: 8})
   wireSegmentModel.translate(0, -wireLength/2, 0)
   wireSegmentModel.scale(0.01, wireLength, 0.01)
-  var light = new sceneNode({origin: [0, -0, 0], color: [1,1,1], name: 'light', sides: 16, offset: true})
+  var light = new sceneNode({origin: [0, -0, 0], color: [1,1,1], name: 'light', sides: 16, offset: true, isLightSource: true})
   var wireSegment4 = new sceneNode({origin: [0, -0, 0], noModel: true, children: {wireSegmentModel, light}, name: 'wireSegment4'})
   var wireSegment3 = new sceneNode({origin: [0, -0, 0], noModel: true, children: {wireSegmentModel, wireSegment4}, name: 'wireSegment3'})
   var wireSegment2 = new sceneNode({origin: [0, -0, 0], noModel: true, children: {wireSegmentModel, wireSegment3}, name: 'wireSegment2'})

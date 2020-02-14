@@ -11,8 +11,8 @@ function defineObjects() {
 
   // tv
   var tvNode = createTV()
-  tvNode.translate(0, 0.845, 0)
-  // objectsArray.push(tvNode)
+  tvNode.translate(0, 0.845, 0.1)
+  //objectsArray.push(tvNode)
   var tvAndCabinetNode = new sceneNode({ noModel: true, children: { cabinetNode, tvNode }, name: 'tvAndCabinetNode' })
   tvAndCabinetNode.translate(-1, 0, -1)
   objectsArray.push(tvAndCabinetNode)
@@ -87,11 +87,23 @@ var cabinetDoorAngle = 0
 var cabinetShelfDisplacement = 0
 var reclinerAngle = 0
 
+//var sideChange = -1
+
 // Draw the scene repeatedly
+// update position/rotation etc. values based on user input or time, then render scene using them
 function render(now) {
+  
+  /*
+  if (g_Sides[0] > 8) {
+    g_Sides[0] = 8
+  }
 
-  // update position/rotation etc. values based on user input or time, then render scene using them
-
+  g_Sides[0] += sideChange
+  if ((g_Sides[0] <= 2) || (g_Sides[0] >= 8)) {
+    sideChange = -sideChange;
+  }
+  */
+  
   now *= 0.001 // convert to seconds
   const deltaTime = now - then
   then = now
@@ -99,8 +111,20 @@ function render(now) {
   if (keysPressed.has('KeyV')) {
     g_hAngle = cameraDefaults.g_hAngle
     g_vAngle = cameraDefaults.g_vAngle
-    g_Pos = cameraDefaults.g_Pos
+    g_Pos = [...cameraDefaults.g_Pos]
   }
+
+
+  if (keysPressed.has('Minus')) {
+    g_Sides[0] -= 4;
+    g_Sides[0] = Math.max(g_Sides[0], 4)
+  }
+
+  if (keysPressed.has('Equal')) {
+    g_Sides[0] += 4;
+    g_Sides[0] = Math.min(g_Sides[0], 32)
+  }
+
 
   if (keysPressed.has('ShiftLeft')) {
     if (keysPressed.has('Digit1')) {

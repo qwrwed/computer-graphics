@@ -43,12 +43,16 @@ var FSHADER_SOURCE = `
   varying vec2 v_TexCoords;
   uniform sampler2D u_Sampler;
   uniform bool u_UseTextures;
+  uniform bool u_modelIsLightSource;
 
   void main() {
     vec3 normal = normalize(v_Normal);
     vec3 lightDirection = normalize(u_LightPosition - v_Position);
     float nDotL = max(dot(lightDirection, normal), 0.0);
     vec3 diffuse;
+    if (u_modelIsLightSource) {
+      nDotL = 1.0;
+    }
     if (u_UseTextures) {
       vec4 TexColor = texture2D(u_Sampler, v_TexCoords);
       //diffuse = u_LightColor * TexColor.rgb * nDotL * 1.2;

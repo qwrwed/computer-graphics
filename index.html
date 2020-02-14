@@ -21,7 +21,13 @@
       width: 100%;
       height: 100%;
       margin: 0;
+      font-family: Verdana, Arial, Helvetica, sans-serif;
+      font-size: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
+
     #webgl {
       display: block;
     }
@@ -30,22 +36,25 @@
 </head>
 
 <body onload="main()">
-  <canvas id="webgl" width="400" height="400">
+
+  <canvas id="webgl" style="flex: 1">
     Please use a browser that supports "canvas"
   </canvas>
 
-
-  WASD: Movement (relative to camera) &emsp;
-  Q, E: Up/Down &emsp;
-  ↑↓→←: Camera &emsp;
-  R, T: Cabinet (clock inside) &emsp;
-  F, G: Recliners &emsp;
-  V: Reset camera
-  <br>
-  Furniture:&ensp; 4x chairs, &ensp;1x table,&ensp; 1x cabinet,&ensp; 1x clock (real-time),&ensp; 1x TV,&ensp; 2x
-  recliners, 1x light (dynamic)
-  <br>
-  If framerate is low, hold key for effect, or hide groups with keys 1-4 (unhide with Shift+1-4)
+  <div style="flex-basis: content; padding: 10px 5px 10px 5px;">
+    WASD: Movement (relative to camera) &emsp;
+    Q, E: Up/Down &emsp;
+    ↑↓→←: Camera &emsp;
+    R, T: Cabinet (clock inside) &emsp;
+    F, G: Recliners &emsp;
+    V: Reset camera &emsp;
+    +, -: Modify visual complexity
+    <br>
+    Furniture:&ensp; 4x chairs, &ensp;1x table,&ensp; 1x cabinet,&ensp; 1x clock (real-time),&ensp; 1x TV,&ensp; 2x
+    recliners, 1x light (dynamic)
+    <br>
+    If framerate is low, hold key for effect, or hide groups with keys 1-4 (unhide with Shift+1-4)
+  </div>
 </body>
 
 </html>

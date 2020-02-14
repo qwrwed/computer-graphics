@@ -21,7 +21,7 @@ class sceneNode {
         const defaults = {
             uid: uid,
             noModel: false, // if true, has no model (so this sceneNode is for hierarchical grouping/transformations)
-            sides: 4, // number of side faces or top edges the prism has (4 for cuboid)
+            sides: [4], // number of side faces or top edges the prism has (4 for cuboid)
             color: [0, 1, 0], // prism colour
             offset: false, // rotate prism about length by 1/2*sides rotations (e.g. rotate square 45 degrees, rotate triangle 60 degrees)
             fitInCircle: false, // true: contain top face within a 1-diameter circle. false: contain 1-diameter circle within top face
@@ -29,7 +29,8 @@ class sceneNode {
             origin: [0, 0, 0], // scale/rotation origin
             hidden: false, // if true do not render model (for hiding)
             textureMode: 'none', // 'repeat' to show same texture on all side faces, 'stretch' to stretch single texture along faces
-            imageSrc: undefined // path to image
+            imageSrc: undefined, // path to image
+            isLightSource: false // emits own light
         }
 
         // define prism attributes by overwriting defaults with given args
@@ -41,16 +42,22 @@ class sceneNode {
             this.children = Object.assign({}, {}, args.children)
         }
 
+        if (typeof(this.opts.sides) != 'object'){
+            this.opts.sides = [this.opts.sides];
+        }
+
         // initialise matrices
         this.matrices.model = new Matrix4
         this.matrices.scale = new Matrix4
         this.matrices.rotation = new Matrix4
         this.matrices.translation = new Matrix4
+        this.matrices.parentModelMatrix = new Matrix4
         this.matrices.augmentedModelMatrix = new Matrix4
 
         //if the model is to be drawn, initialise vertex buffers
         if (!this.opts.noModel) {
-            this.buffers = initPrismVertexBuffers(this.opts.sides, this.opts.color, this.opts.offset, this.opts.fitInCircle, this.opts.textureMode)
+            this.buffers = initPrismVertexBuffers(this.opts.sides[0], this.opts.color, this.opts.offset, this.opts.fitInCircle, this.opts.textureMode)
+            this.renderedSides = this.opts.sides;
         }
 
         // if image source and image mode are given, init texture
@@ -110,6 +117,7 @@ class sceneNode {
     // absolute translation operation
     setTranslate(x, y, z) {
         this.matrices.translation.setTranslate(x, y, z)
+        this.updateModelMatrix()
     }
 
     // relative rotation operation
@@ -126,6 +134,7 @@ class sceneNode {
         this.matrices.rotation.setRotate(0, x, y, z)
         this.rotate(theta, x, y, z)
         //this.matrices.rotation.translate(-this.opts.origin[0], -this.opts.origin[1], -this.opts.origin[2])    
+        this.updateModelMatrix()
     }
 
     // update model matrix after a transformation
@@ -159,6 +168,15 @@ class sceneNode {
         if (!this.opts.hidden) {
             if (!this.opts.noModel) {
 
+                        //if the model is to be drawn, initialise vertex buffers
+                //console.log(this.opts.sides)
+                //console.log(this.renderedSides)
+                //console.log('')
+                if (!(this.renderedSides[0] !== this.opts.sides[0])) {
+                    this.buffers = initPrismVertexBuffers(this.opts.sides[0], this.opts.color, this.opts.offset, this.opts.fitInCircle, this.opts.textureMode)
+                    this.renderedSides[0] = this.opts.sides[0];
+                }
+
                 // Write the vertex property to buffers (coordinates, colors and normals)
                 if (!initArrayBuffer('a_Position', this.buffers.vertices, 3, gl.FLOAT)) return -1
                 if (!initArrayBuffer('a_Color', this.buffers.colors, 3, gl.FLOAT)) return -1
@@ -176,6 +194,12 @@ class sceneNode {
                 this.matrices.normal.transpose()
                 gl.uniformMatrix4fv(uniforms.NormalMatrix, false, this.matrices.normal.elements)
 
+                if (this.opts.isLightSource) {
+                    gl.uniform1i(uniforms.modelIsLightSource, true)
+                } else {
+                    gl.uniform1i(uniforms.modelIsLightSource, false) 
+                }
+
                 // Draw the prism
                 gl.drawElements(gl.TRIANGLES, this.buffers.indices.length, gl.UNSIGNED_BYTE, 0)
             }
@@ -185,6 +209,19 @@ class sceneNode {
         }
     }
 }
+
+// create array buffer for prism
+function initArrayBuffer(attribute, data, num, type, stride = 0, offset = 0) {
+    var buffer = gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW)
+    var a_attribute = gl.getAttribLocation(gl.program, attribute)
+    gl.vertexAttribPointer(a_attribute, num, type, false, stride, offset)
+    gl.enableVertexAttribArray(a_attribute)
+    gl.bindBuffer(gl.ARRAY_BUFFER, null)
+    return true
+}
+
 
 // create vertex buffers for prism
 function initPrismVertexBuffers(sides = 4, color = [1, 0, 0], offset = false, fitInCircle = false, textureMode = 'repeat') {
@@ -206,8 +243,6 @@ function initPrismVertexBuffers(sides = 4, color = [1, 0, 0], offset = false, fi
     const dispX = radAngles.map(t => +Math.sin(t).toFixed(10)) // x displacement of each vertex calculated by angle
     const dispZ = radAngles.map(t => +Math.cos(t).toFixed(10)) // z displacement of each vertex calculated by angle
     const dispYAbs = 0.5 // y-distance magnitude from origin to top and bottom vertices/faces
-
-
 
     const texRadAngles = mod(sides, 2) ?
         csIndices.map(i => ((i) * (2 * Math.PI) / sides + offset * Math.PI / sides)) :
@@ -247,8 +282,6 @@ function initPrismVertexBuffers(sides = 4, color = [1, 0, 0], offset = false, fi
         tSides.push(tSides.shift())
     }
 
-
-
     v = [vTop, vBottom, vSides]
     n = [nTop, nBottom, nSides]
     t = [tTop, tTop, tSides]
@@ -285,16 +318,4 @@ function initPrismVertexBuffers(sides = 4, color = [1, 0, 0], offset = false, fi
     )
 
     return { indices, vertices, colors, normals, texCoords }
-}
-
-// create array buffer for prism
-function initArrayBuffer(attribute, data, num, type, stride = 0, offset = 0) {
-    var buffer = gl.createBuffer()
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW)
-    var a_attribute = gl.getAttribLocation(gl.program, attribute)
-    gl.vertexAttribPointer(a_attribute, num, type, false, stride, offset)
-    gl.enableVertexAttribArray(a_attribute)
-    gl.bindBuffer(gl.ARRAY_BUFFER, null)
-    return true
 }
