@@ -1,5 +1,4 @@
 How to run (Windows 10):
-
 1. Install npm
 2. In a cmd/powershell session in this directory, run "npm init"
 3. Run "npm start"

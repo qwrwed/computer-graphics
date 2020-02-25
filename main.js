@@ -63,7 +63,7 @@ function main() {
   });
 
   // Get the rendering context for WebGL
-  gl = getWebGLContext(canvas)
+  gl = getWebGLContext(canvas, false)
 
   // Initialize shaders
   initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)
